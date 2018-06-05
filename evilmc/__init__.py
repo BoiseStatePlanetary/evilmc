@@ -2,4 +2,4 @@
 
 __version__ = '0.1.0'
 __author__ = 'Brian Jackson <bjackson@boisestate.edu>'
-__all__ = []
+__all__ = ['evilmc']
