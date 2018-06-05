@@ -1,4 +1,7 @@
 import setuptools
+from setuptools import setup, find_packages
+from codecs import open
+from os import path
 
 import evilmc
 
@@ -21,7 +24,7 @@ setuptools.setup(
     name="evilmc",
     version="0.1.0",
     url="https://github.com/BoiseStatePlanetary/evilmc",
-    download_url='https://github.com/BoiseStatePlanetary/evilmc/archive/'+__version__+'.tar.gz'
+    download_url='https://github.com/BoiseStatePlanetary/evilmc/archive/'+__version__+'.tar.gz',
     license='BSD',
 
     author="Brian Jackson",
