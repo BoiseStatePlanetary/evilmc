@@ -42,8 +42,18 @@ class evmodel(object):
         phi_params = {"per": params.per, "T0": params.T0}
         self.phi = transit_utils.calc_phi(time, phi_params)
 
-        # Calculate 3D orbital position of planet
+        # Calculate orbital inclination in degrees
+        self.inc = np.arccos(params.b/params.a)*180./np.pi
 
+        # Calculate 3D orbital position of companion
+        ke = pyasl.KeplerEllipse(params.a, params.per, 
+                i=self.inc, w=params.peri, Omega=params.asc, tau=params.T0)
+        rc = ke.xyzPos(self.time_supersample)
+
+        # Calculate radial distance between companion and host
+        nrm_rc = ke.radius(self.time_supersample)
+
+        # z-projection of orbital velocity
 
 class evparams(object):
     """System parameters for EVIL-MC calculation
@@ -51,6 +61,11 @@ class evparams(object):
     Args:
         per (float): orbital period (any units).
         a (float): semi-major axis (units of stellar radius)
+        e (float): orbital eccentricity
+        peri (float): argument of periapsis (degrees)
+        asc (float): longitude of ascending node (degrees)
+            Although this argument is allowed, it is not used since the
+            resulting signals do not depend on the longitude of ascending node.
         T0 (float):  mid-transit time (same units as period)
         p (float): planet's radius (units of stellar radius)
         limb_dark (str): Limb darkening model
@@ -78,10 +93,10 @@ class evparams(object):
     def __init__(self, **kwargs):
 
         # all those keys will be initialized as class attributes
-        allowed_keys = set(['time','per','a', 'T0', 'p', 'limb_dark', 
-            'u', 'beta', 'b', 'q', 'Kz', 'Ts', 'Ws'])
+        allowed_keys = set(['per', 'a', 'e', 'peri', 'asc', 'T0', 
+            'p', 'limb_dark', 'u', 'beta', 'b', 'q', 'Kz', 'Ts', 'Ws'])
         # initialize all allowed keys to false
-        self.__dict__.update((key, None) for key in allowed_keys)
+        self.__dict__.update((key, 0.) for key in allowed_keys)
         # and update the given keys by their given values
         self.__dict__.update((key, value) for key, value in kwargs.items()
                 if key in allowed_keys)
