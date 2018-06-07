@@ -43,38 +43,41 @@ class evmodel(object):
         self.inc = np.arccos(params.b/params.a)*180./np.pi
 
         # Calculate 3D orbital position of companion
-        self._ke = pyasl.KeplerEllipse(params.a, params.per, i=self.inc, 
+        _ke = pyasl.KeplerEllipse(params.a, params.per, i=self.inc, 
                 tau=params.T0)
-        self._rc = ke.xyzPos(self.time_supersample)
+        self._rc = _ke.xyzPos(self.time_supersample)
 
         # Calculate radial distance between companion and host
-        self._nrm_rc = ke.radius(self.time_supersample)
+        self._nrm_rc = _ke.radius(self.time_supersample)
 
         # z-projection of orbital velocity, in fractions of speed of light
-        self._vz = xyzVel(self.time_supersample)[:, 2]
+        self._vz = _ke.xyzVel(self.time_supersample)[:, 2]
 
-        # Make grid on stellar surface
-        self._grid = _stellar_grid(self, num_grid)
-
-    def evilmc_signal(self):
+    def evilmc_signal(self, num_grid=31):
         """Calculates the ellipsoidal variation and beaming effect curves
+
+        Args:
+            num_grid (int, optional): # of lat/long grid points on star,
+                defaults to 31
 
         Returns:
             numpy array: time-series ellipsoidal variation and beaming signals
         """
+        # Make grid on stellar surface
+        _grid = _stellar_grid_geometry(self.params, num_grid)
 
-        pass
+        return None
 
-class _stellar_grid(object):
-    """Generates required parameters on stellar hemisphere
+
+class _stellar_grid_geometry(object):
+    """Generates geometry for the stellar hemisphere facing the observer, 
+    i.e. z > 0
 
     Args:
         params (:attr:`evparams`): object containing system parameters
-        num_grid (int, optional): # of lat/long grid points on star,
-            defaults to 31
     """
 
-    def __init__(self, params, num_grid=31):
+    def __init__(self, params, num_grid):
 
         # cos(theta) runs from 1 to 0 on the front face of the star,
         # and so the grid spacing dcos_theta is 1 over the grid number
@@ -141,8 +144,7 @@ class evparams(object):
     Example:
         >>> import numpy as np
         >>> from evilmc import evparams
-        >>> time = np.linspace(0, 1, 100)
-        >>> ev = evparams(time=time, per=1., a=4.15, T0=0.5, p=1./12.85,
+        >>> ev = evparams(per=1., a=4.15, T0=0.5, p=1./12.85,
                 limb_dark='quadratic', u=[0.314709, 0.312125], beta=0.07,
                 q=1.10e-3, Kz=1e-6, Ts=6350., Ws=[0.,0.,1.])
         >>> # Print one example
