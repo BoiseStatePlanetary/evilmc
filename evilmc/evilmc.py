@@ -6,7 +6,7 @@ from PyAstronomy.modelSuite.XTran.forTrans import MandelAgolLC
 from PyAstronomy import pyasl
 import transit_utils
 
-__all__= ['evmodel']
+__all__= ['evmodel', 'evparams']
 
 class evmodel(object):
     """Returns ellipsoidal variation of a slowly-rotating star induced by a 
@@ -75,7 +75,50 @@ class _stellar_grid(object):
     """
 
     def __init__(self, params, num_grid=31):
-        pass
+
+        # cos(theta) runs from 1 to 0 on the front face of the star,
+        # and so the grid spacing dcos_theta is 1 over the grid number
+        dcos_theta = 1./num_grid
+
+        cos_theta = np.linspace(0.5*dcos_theta, 1. - 0.5*dcos_theta, num_grid)
+        sin_theta = np.sqrt(1. - cos_theta**2.)
+
+        # phi runs from 0 to 2 pi
+        dphi = 2.*np.pi/(num_grid)
+        phi = np.linspace(0.5*dphi, 2.*np.pi - 0.5*dphi, num_grid)
+        cos_phi = np.cos(phi)
+        sin_phi = np.sin(phi)
+
+        # rhat is the normal vector to the stellar surface
+        #
+        # x/y/zhat are the x/y/z components of rhat and are defined on the
+        # 2D grid of stellar surface grid points
+        xhat = np.outer(cos_phi, sin_theta)
+        yhat = np.outer(sin_phi, sin_theta)
+        zhat = np.outer(np.ones_like(cos_phi), cos_theta)
+
+        # nrm_Omega is the length of the stellar rotation vector
+        Omega = params.Ws
+        nrm_Omega = np.sqrt(
+                Omega[0]*Omega[0] +\
+                Omega[1]*Omega[1] +\
+                Omega[2]*Omega[2]
+                )
+
+        # Omegahat is a unit vector pointing along Omega
+        # If nrm_Omega is zero, then Omegahat is arbitrary
+        if(nrm_Omega == 0.):
+            Omegahat = np.array([0., 0., 1.0])
+        else:
+            Omegahat = Omega/nrm_Omega
+
+        # cos_lambda is the cosine of the angle between rhat and the 
+        # stellar rotation axis
+        cos_lambda =\
+                Omegahat[0]*xhat +\
+                Omegahat[1]*yhat +\
+                Omegahat[2]*zhat
+
 
 class evparams(object):
     """System parameters for EVIL-MC calculation
