@@ -18,20 +18,17 @@ class evmodel(object):
         supersample_factor (int, optional): 
             number of points subdividing exposure
         exp_time (float, optional): Exposure time (in same units as `time`)
-        num_grid (int, optional): # of lat/long grid points on star, 
-            defaults to 31
     """
 
-    def __init__(self, time, params, supersample_factor=1, exp_time=0, 
-            num_grid=31):
+    def __init__(self, time, params, supersample_factor=1, exp_time=0):
         """__init__ method for EVILMC
         """
         self.time = time
         self.params = params
 
+        # Consider finite exposure time
         self.supersample_factor = supersample_factor
         self.exp_time = exp_time
-
         self.time_supersample = time
         if(self.exp_time > 1):
             self.time_supersample =\
@@ -39,21 +36,46 @@ class evmodel(object):
                             exp_time)
 
         # Calculate orbital phase
-        phi_params = {"per": params.per, "T0": params.T0}
-        self.phi = transit_utils.calc_phi(time, phi_params)
+        phase_params = {"per": params.per, "T0": params.T0}
+        self.phase = transit_utils.calc_phi(time, phase_params)
 
         # Calculate orbital inclination in degrees
         self.inc = np.arccos(params.b/params.a)*180./np.pi
 
         # Calculate 3D orbital position of companion
-        ke = pyasl.KeplerEllipse(params.a, params.per, 
-                i=self.inc, w=params.peri, Omega=params.asc, tau=params.T0)
-        rc = ke.xyzPos(self.time_supersample)
+        self._ke = pyasl.KeplerEllipse(params.a, params.per, i=self.inc, 
+                tau=params.T0)
+        self._rc = ke.xyzPos(self.time_supersample)
 
         # Calculate radial distance between companion and host
-        nrm_rc = ke.radius(self.time_supersample)
+        self._nrm_rc = ke.radius(self.time_supersample)
 
-        # z-projection of orbital velocity
+        # z-projection of orbital velocity, in fractions of speed of light
+        self._vz = xyzVel(self.time_supersample)[:, 2]
+
+        # Make grid on stellar surface
+        self._grid = _stellar_grid(self, num_grid)
+
+    def evilmc_signal(self):
+        """Calculates the ellipsoidal variation and beaming effect curves
+
+        Returns:
+            numpy array: time-series ellipsoidal variation and beaming signals
+        """
+
+        pass
+
+class _stellar_grid(object):
+    """Generates required parameters on stellar hemisphere
+
+    Args:
+        params (:attr:`evparams`): object containing system parameters
+        num_grid (int, optional): # of lat/long grid points on star,
+            defaults to 31
+    """
+
+    def __init__(self, params, num_grid=31):
+        pass
 
 class evparams(object):
     """System parameters for EVIL-MC calculation
@@ -61,11 +83,6 @@ class evparams(object):
     Args:
         per (float): orbital period (any units).
         a (float): semi-major axis (units of stellar radius)
-        e (float): orbital eccentricity
-        peri (float): argument of periapsis (degrees)
-        asc (float): longitude of ascending node (degrees)
-            Although this argument is allowed, it is not used since the
-            resulting signals do not depend on the longitude of ascending node.
         T0 (float):  mid-transit time (same units as period)
         p (float): planet's radius (units of stellar radius)
         limb_dark (str): Limb darkening model
@@ -93,7 +110,7 @@ class evparams(object):
     def __init__(self, **kwargs):
 
         # all those keys will be initialized as class attributes
-        allowed_keys = set(['per', 'a', 'e', 'peri', 'asc', 'T0', 
+        allowed_keys = set(['per', 'a', 'T0', 
             'p', 'limb_dark', 'u', 'beta', 'b', 'q', 'Kz', 'Ts', 'Ws'])
         # initialize all allowed keys to false
         self.__dict__.update((key, 0.) for key in allowed_keys)
