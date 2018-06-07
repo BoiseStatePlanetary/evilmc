@@ -66,6 +66,21 @@ class evmodel(object):
         # Make grid on stellar surface
         _grid = _stellar_grid_geometry(self.params, num_grid)
 
+        # Calculate stellar radiation 
+        # convolved with response function and Doppler shifts
+
+        # Calculate temperature derivative of stellar radiation 
+        # convolved with the response function and Doppler shifts
+
+        # psi is the angle between the companion's position vector
+        # and the position vector of the center of the stellar grid element
+
+        # Calculate the deformation for a very slightly tidally deformed 
+        # and slowly rotating body with a Love number of 1
+
+        # Calculate the small correction to the surface gravity vector 
+        # for a very slightly tidally deformed and slowly rotating body
+
         return None
 
 
