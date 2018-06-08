@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from astropy.modeling.blackbody import blackbody_lambda
 from PyAstronomy.modelSuite.XTran.forTrans import MandelAgolLC
 from PyAstronomy import pyasl
 import transit_utils
@@ -18,9 +19,15 @@ class evmodel(object):
         supersample_factor (int, optional): 
             number of points subdividing exposure
         exp_time (float, optional): Exposure time (in same units as `time`)
+        response_function (str, optional): "Kepler" or "TESS";
+            defaults to Kepler (and TESS isn't implemented yet)
+        stellar_model (str, optional): "blackbody";
+            defaults to blackbody (and nothing else is implemented yet)
     """
 
-    def __init__(self, time, params, supersample_factor=1, exp_time=0):
+    def __init__(self, time, params,
+            supersample_factor=1, exp_time=0, 
+            response_function="Kepler", stellar_model="blackbody"):
         """__init__ method for EVILMC
         """
         self.time = time
@@ -34,6 +41,9 @@ class evmodel(object):
             self.time_supersample =\
                     transit_utils.supersample_time(time, supersample_factor,
                             exp_time)
+
+        self.response_function = response_function
+        self.stellar_model = stellar_model
 
         # Calculate orbital phase
         phase_params = {"per": params.per, "T0": params.T0}
@@ -57,8 +67,7 @@ class evmodel(object):
         """Calculates the ellipsoidal variation and beaming effect curves
 
         Args:
-            num_grid (int, optional): # of lat/long grid points on star,
-                defaults to 31
+            num_grid (int, optional): # of lat/long grid points on star
 
         Returns:
             numpy array: time-series ellipsoidal variation and beaming signals
@@ -66,6 +75,13 @@ class evmodel(object):
         # Make grid on stellar surface
         _grid = _stellar_grid_geometry(self.params, num_grid)
 
+        # Because the variation in stellar surface temperature with gravity
+        # is so small, we approximate the variation in stellar radiation
+        # using a first-order Taylor expansion. 
+        # This approach also speeds up the calculation.
+        convolved_stellar_radiation =\
+                _convolve_stellar_radiation_with_response_function()
+    
         # Calculate stellar radiation 
         # convolved with response function and Doppler shifts
 
@@ -82,6 +98,28 @@ class evmodel(object):
         # for a very slightly tidally deformed and slowly rotating body
 
         return None
+
+    def _convolve_stellar_radiation_with_response_function(self):
+        """Conolves the stellar radiation model 
+        with the instrument response function
+        """
+        if(self.response_function == "Kepler"):
+            # https://keplergo.arc.nasa.gov/kepler_response_hires1.txt
+            response_function_file = "kepler_response_hires1.txt"
+        
+            wavelength, tabulated_response_function =\
+                    np.genfromtxt(response_function_file,\
+                    comments="#", delimiter="\t", unpack=True)
+
+            # Convert wavelength to angstroms from nm
+            wavelength *= 10.
+
+        if(self.stellar_model == "blackbody"):
+            stellar_model_function = blackbody_lambda
+
+        stellar_radiation = stellar_model_function(wavelength, 
+                    self.params.Ts)
+
 
 
 class _stellar_grid_geometry(object):
