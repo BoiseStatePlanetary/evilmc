@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+from scipy.integrate import simps
+from scipy.misc import derivative
 
-from astropy.modeling.blackbody import blackbody_lambda
+from astropy import constants as const
+
+# https://stackoverflow.com/questions/779495/python-access-data-in-package-subdirectory
+import pkg_resources
+
 from PyAstronomy.modelSuite.XTran.forTrans import MandelAgolLC
 from PyAstronomy import pyasl
 import transit_utils
@@ -21,13 +27,11 @@ class evmodel(object):
         exp_time (float, optional): Exposure time (in same units as `time`)
         response_function (str, optional): "Kepler" or "TESS";
             defaults to Kepler (and TESS isn't implemented yet)
-        stellar_model (str, optional): "blackbody";
-            defaults to blackbody (and nothing else is implemented yet)
     """
 
     def __init__(self, time, params,
             supersample_factor=1, exp_time=0, 
-            response_function="Kepler", stellar_model="blackbody"):
+            response_function="Kepler"):
         """__init__ method for EVILMC
         """
         self.time = time
@@ -43,25 +47,11 @@ class evmodel(object):
                             exp_time)
 
         self.response_function = response_function
-        self.stellar_model = stellar_model
 
         # Calculate orbital phase
         phase_params = {"per": params.per, "T0": params.T0}
-        self.phase = transit_utils.calc_phi(time, phase_params)
-
-        # Calculate orbital inclination in degrees
-        self.inc = np.arccos(params.b/params.a)*180./np.pi
-
-        # Calculate 3D orbital position of companion
-        _ke = pyasl.KeplerEllipse(params.a, params.per, i=self.inc, 
-                tau=params.T0)
-        self._rc = _ke.xyzPos(self.time_supersample)
-
-        # Calculate radial distance between companion and host
-        self._nrm_rc = _ke.radius(self.time_supersample)
-
-        # z-projection of orbital velocity, in fractions of speed of light
-        self._vz = _ke.xyzVel(self.time_supersample)[:, 2]
+        self.phase = transit_utils.calc_phi(self.time_supersample, 
+                phase_params)
 
     def evilmc_signal(self, num_grid=31):
         """Calculates the ellipsoidal variation and beaming effect curves
@@ -73,23 +63,51 @@ class evmodel(object):
             numpy array: time-series ellipsoidal variation and beaming signals
         """
         # Make grid on stellar surface
-        _grid = _stellar_grid_geometry(self.params, num_grid)
+        grid = _stellar_grid_geometry(self.params, num_grid)
 
-        # Because the variation in stellar surface temperature with gravity
-        # is so small, we approximate the variation in stellar radiation
-        # using a first-order Taylor expansion. 
-        # This approach also speeds up the calculation.
-        convolved_stellar_radiation =\
-                _convolve_stellar_radiation_with_response_function()
+        # Calculate orbital inclination in degrees
+        inc = np.arccos(self.params.b/self.params.a)*180./np.pi
+
+        # Calculate 3D orbital position of companion
+        ke = pyasl.KeplerEllipse(self.params.a, self.params.per, 
+                i=inc, tau=self.params.T0)
+        rc = ke.xyzPos(self.time_supersample)
+
+        # Calculate radial distance between companion and host
+        nrm_rc = ke.radius(self.time_supersample)
+
+        # Unit vector pointing toward planet
+        rc_hat = rc/nrm_rc[:, None]
+
+        # z-projection of orbital velocity, in fractions of speed of light
+        vz = ke.xyzVel(self.time_supersample)[:, 2]
+
+        # For each point in the orbit,
+        for i in range(len(vz)):
+
+            # Because the variation in stellar surface temperature with gravity
+            # is so small, we approximate the variation in stellar radiation
+            # using a first-order Taylor expansion. 
+            # This approach also speeds up the calculation.
     
-        # Calculate stellar radiation 
-        # convolved with response function and Doppler shifts
+            # Calculate stellar radiation 
+            # convolved with response function and Doppler shifts
+            strad = _calc_stellar_brightness(
+                    self.response_function, 
+                    self.params.Ts,
+                    vz[i])
+            # Calculate temperature derivative of stellar radiation
+            wrapped = lambda x:\
+                    _calc_stellar_brightness(
+                            self.response_function, 
+                            x, 
+                            vz[i])
+            dx = self.params.Ts/1000.
+            dstrad = derivative(wrapped, self.params.Ts, dx=dx)
 
-        # Calculate temperature derivative of stellar radiation 
-        # convolved with the response function and Doppler shifts
-
-        # psi is the angle between the companion's position vector
-        # and the position vector of the center of the stellar grid element
+            # psi is the angle between the companion's position vector
+            # and the position vector of the center of the stellar grid element
+            
 
         # Calculate the deformation for a very slightly tidally deformed 
         # and slowly rotating body with a Love number of 1
@@ -99,28 +117,58 @@ class evmodel(object):
 
         return None
 
-    def _convolve_stellar_radiation_with_response_function(self):
-        """Conolves the stellar radiation model 
-        with the instrument response function
-        """
-        if(self.response_function == "Kepler"):
-            # https://keplergo.arc.nasa.gov/kepler_response_hires1.txt
-            response_function_file = "kepler_response_hires1.txt"
-        
-            wavelength, tabulated_response_function =\
-                    np.genfromtxt(response_function_file,\
-                    comments="#", delimiter="\t", unpack=True)
+def _calc_stellar_brightness(which_response_function, Ts, vz):
+    """Conolves the stellar radiation model 
+    with the instrument response function
+    at given temperature and for a given Doppler velocity
 
-            # Convert wavelength to angstroms from nm
-            wavelength *= 10.
+    Args:
+        Ts (float): stellar temperature (K)
+        vz (float): Doppler velocity in fractions of light speed
+        which_response_function (str): "Kepler"
 
-        if(self.stellar_model == "blackbody"):
-            stellar_model_function = blackbody_lambda
+    """
 
-        stellar_radiation = stellar_model_function(wavelength, 
-                    self.params.Ts)
+    # MKS constants
+    c = const.c.to('m/s').value
+    h = const.h.to("J*s").value
+    k_B = const.k_B.to("J/K").value
 
+    if(which_response_function == "Kepler"):
+        # https://keplergo.arc.nasa.gov/kepler_response_hires1.txt
+        response_function_file =\
+                pkg_resources.resource_filename('evilmc', 
+                        'data/kepler_response_hires1.txt')
+        # 2018 Jun 11 - This doesn't work!
+        print(response_function_file)
+    
+        wavelength, resp =\
+                np.genfromtxt(response_function_file,\
+                comments="#", delimiter="\t", unpack=True)
 
+        # Convert wavelengths from nanometers to meters
+        wavelength *= 1e-9
+
+        # Normalize
+        resp /= simps(resp, wavelength)
+
+        # Make into frequencies
+        freq = c/wavelength[::-1]
+    else:
+        raise ValueError("which_response_function must be 'Kepler'!")
+
+    # Using expression from Loeb & Gaudi (2003) ApJL 588, L117.
+    freq0 = freq*(1. + vz)
+    x0 = h*freq0/(k_B*Ts)
+    # From Loeb & Gaudi, Eqn 3
+    alpha0 = (np.exp(x0)*(3. - x0) - 3.)/(np.exp(x0) - 1.)
+
+    F_nu0 = 2.*h*(freq0*freq0*freq0)/(c*c)/(np.exp(x0) - 1.)
+    F_nu = F_nu0*(1. - (3. - alpha0)*vz)
+
+    func = F_nu*resp
+
+    return simps(func, freq)
 
 class _stellar_grid_geometry(object):
     """Generates geometry for the stellar hemisphere facing the observer, 
