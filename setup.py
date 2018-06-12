@@ -31,8 +31,9 @@ setuptools.setup(
 
     packages=setuptools.find_packages(),
 
+    include_package_data = True,
     package_dir={'evilmc': 'evilmc'}, 
-    package_data={'evilmc': ['data/kepler_response_hires1.txt']},
+    package_data={'evilmc': ['../data/kepler_response_hires1.txt']},
     install_requires=install_requires,
     dependency_links=dependency_links,
 
