@@ -35,7 +35,7 @@ class evmodel(object):
 
     def __init__(self, time, params,
             supersample_factor=1, exp_time=0, 
-            response_function="Kepler"):
+            which_response_function="Kepler"):
         """__init__ method for EVILMC
         """
         self.time = time
@@ -50,7 +50,9 @@ class evmodel(object):
                     transit_utils.supersample_time(time, supersample_factor,
                             exp_time)
 
-        self.response_function = response_function
+        self.which_response_function = which_response_function
+        self.response_function =\
+                _retreive_response_function(self.which_response_function)
 
         # Calculate orbital phase
         phase_params = {"per": params.per, "T0": params.T0}
@@ -118,16 +120,11 @@ class evmodel(object):
     
             # Calculate stellar radiation 
             # convolved with response function and Doppler shifts
-            strad = _calc_stellar_brightness(
-                    self.response_function, 
-                    self.params.Ts,
-                    vz[i])
+            strad = _calc_stellar_brightness(self.params.Ts, vz[i], 
+                    self.response_function)
             # Calculate temperature derivative of stellar radiation
             wrapped = lambda x:\
-                    _calc_stellar_brightness(
-                            self.response_function, 
-                            x, 
-                            vz[i])
+                    _calc_stellar_brightness(x, vz[i], self.response_function)
             dx = self.params.Ts/1000.
             dstrad_dtemp = derivative(wrapped, self.params.Ts, dx=dx)
 
@@ -320,27 +317,20 @@ def _calc_del_R(q, r, cos_psi, nrm_Omega, cos_lambda):
             1./np.sqrt(r*r + 1.) - cos_psi/(r*r)) -\
             nrm_Omega*nrm_Omega/(2.*r*r*r)*(cos_lambda*cos_lambda)
 
-
-def _calc_stellar_brightness(which_response_function, Ts, vz):
-    """Convolves the stellar radiation model 
-    with the instrument response function
-    at given temperature and for a given Doppler velocity
+def _retreive_response_function(which_response_function):
+    """Retreives the instrument response function
 
     Args:
-        Ts (float): stellar temperature (K)
-        vz (float): Doppler velocity in fractions of light speed
         which_response_function (str): "Kepler"
 
     Returns:
-        float: integrated host disk brightness in MKS; 
-            exact value is unimportant since the signal time-series
-            is normalized
+        dict of numpy arrays: "wavelength" (in meters) and "resp"
     """
 
     if(which_response_function == "Kepler"):
         # https://keplergo.arc.nasa.gov/kepler_response_hires1.txt
         response_function_file = "data/kepler_response_hires1.txt"
-    
+
         wavelength, resp =\
                 np.genfromtxt(response_function_file,\
                 comments="#", delimiter="\t", unpack=True)
@@ -351,10 +341,34 @@ def _calc_stellar_brightness(which_response_function, Ts, vz):
         # Normalize
         resp /= simps(resp, wavelength)
 
-        # Make into frequencies
-        freq = c/wavelength[::-1]
     else:
         raise ValueError("which_response_function must be 'Kepler'!")
+
+    return {"wavelength": wavelength, "resp": resp}
+
+
+
+def _calc_stellar_brightness(Ts, vz, response_function):
+    """Convolves the stellar radiation model 
+    with the instrument response function
+    at given temperature and for a given Doppler velocity
+
+    Args:
+        Ts (float): stellar temperature (K)
+        vz (float): Doppler velocity in fractions of light speed
+        response_function (dict of numpy arrays): "wavelength" and "resp"
+
+    Returns:
+        float: integrated host disk brightness in MKS; 
+            exact value is unimportant since the signal time-series
+            is normalized
+    """
+
+    wavelength = response_function['wavelength']
+    resp = response_function['resp']
+
+    # Make into frequencies
+    freq = c/wavelength[::-1]
 
     # Using expression from Loeb & Gaudi (2003) ApJL 588, L117.
     freq0 = freq*(1. + vz)
