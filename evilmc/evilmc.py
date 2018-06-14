@@ -110,6 +110,16 @@ class evmodel(object):
         #integrated disk brightness
         disk = np.zeros_like(vz)
 
+        # Calculate stellar radiation 
+        # convolved with response function and Doppler shifts
+        strad = _calc_stellar_brightness(self.params.Ts, vz, 
+                self.response_function)
+        # Calculate temperature derivative of stellar radiation
+        wrapped = lambda x:\
+                _calc_stellar_brightness(x, vz, self.response_function)
+        dx = self.params.Ts/1000.
+        dstrad_dtemp = derivative(wrapped, self.params.Ts, dx=dx)
+
         # For each point in the orbit,
         for i in range(len(vz)):
 
@@ -118,16 +128,6 @@ class evmodel(object):
             # using a first-order Taylor expansion. 
             # This approach also speeds up the calculation.
     
-            # Calculate stellar radiation 
-            # convolved with response function and Doppler shifts
-            strad = _calc_stellar_brightness(self.params.Ts, vz[i], 
-                    self.response_function)
-            # Calculate temperature derivative of stellar radiation
-            wrapped = lambda x:\
-                    _calc_stellar_brightness(x, vz[i], self.response_function)
-            dx = self.params.Ts/1000.
-            dstrad_dtemp = derivative(wrapped, self.params.Ts, dx=dx)
-
             # psi is the angle between the companion's position vector
             # and the position vector of the center of the stellar grid element
             cos_psi =\
@@ -178,7 +178,7 @@ class evmodel(object):
             temp = self.params.Ts + dtemp
             
             # stellar radiation at temp
-            strad_at_temp = np.ones_like(temp)*strad + dstrad_dtemp*dtemp
+            strad_at_temp = np.ones_like(temp)*strad[i] + dstrad_dtemp[i]*dtemp
 
             #limb-darkened profile
             prof = _limb_darkened_profile(self.params.limb_dark, self.params.u,
@@ -371,7 +371,7 @@ def _calc_stellar_brightness(Ts, vz, response_function):
     freq = c/wavelength[::-1]
 
     # Using expression from Loeb & Gaudi (2003) ApJL 588, L117.
-    freq0 = freq*(1. + vz)
+    freq0 = np.outer(freq, (1. + vz))
     x0 = h*freq0/(k_B*Ts)
     # From Loeb & Gaudi, Eqn 3
     alpha0 = (np.exp(x0)*(3. - x0) - 3.)/(np.exp(x0) - 1.)
@@ -379,9 +379,9 @@ def _calc_stellar_brightness(Ts, vz, response_function):
     F_nu0 = 2.*h*(freq0*freq0*freq0)/(c*c)/(np.exp(x0) - 1.)
     F_nu = F_nu0*(1. - (3. - alpha0)*vz)
 
-    func = F_nu*resp
+    func = (F_nu.transpose()*resp).transpose()
 
-    return simps(func, freq)
+    return np.trapz(func, freq, axis=0)
 
 class _stellar_grid_geometry(object):
     """Generates geometry for the stellar hemisphere facing the observer, 
