@@ -120,6 +120,8 @@ class evmodel(object):
             >>> plt.show()
         """
         
+        transit = self._transit() - 1.
+
         E = self._calc_evilmc_signal(num_grid=num_grid)
 
         phase_supersample = self.phase_supersample
@@ -129,7 +131,7 @@ class evmodel(object):
         R = _reflected_emitted_curve(phase_supersample,\
                 F0, Aplanet, phase_shift)
 
-        ret = E + R
+        ret = transit + E + R
 
         # Downsample if necessary
         if(self.supersample_factor > 1):
@@ -283,17 +285,44 @@ class evmodel(object):
         ma = MandelAgolLC(orbit="circular", ld="quad")
 
         # If quadratic limb-darkening
-        if(self.limb_dark == 'quadratic'):
+        if(self.params.limb_dark == 'quadratic'):
             ma["linLimb"] = self.params.u[0]
             ma["quadLimb"] = self.params.u[1]
 
-        ma["per"] = params.per
+        ma["per"] = self.params.per
         # Set using the impact parameter
         ma["i"] = self.params.inc
         ma["a"] = self.params.a
         ma["T0"] = self.params.T0
         ma["p"] = self.params.p
 
+        return ma.evaluate(self.time_supersample)
+
+    def _eclipse(self):
+        """
+        Uses PyAstronomy's transit light curve routine with uniform
+        limb to calculate eclipse
+        """
+
+        ma = self.ma
+        TE = _calc_eclipse_time(self.params)
+        eclipse_depth = self.params.F0 + self.params.Aplanet
+
+        ma = MandelAgolLC(orbit="circular", ld="quad")
+
+        # If quadratic limb-darkening
+        if(self.params.limb_dark == 'quadratic'):
+            ma["linLimb"] = 0.
+            ma["quadLimb"] = 0.
+
+        ma["per"] = self.params.per
+        # Set using the impact parameter
+        ma["i"] = self.params.inc
+        ma["a"] = self.params.a
+        ma["T0"] = TE
+        ma["p"] = np.sqrt(eclipse_depth)
+
+        return cp.evaluate(self.time_supersample)
 
 def _reflected_emitted_curve(phase, F0, Aplanet, phase_shift):
     """Returns sinusoidal reflection curve
@@ -538,6 +567,17 @@ def _calc_phi(time, params):
     per = params['per']
 
     return ((time - T0) % per)/per
+
+def _calc_eclipse_time(params):
+    """Calculates mid-eclipse time - 
+    I've included this function here in anticipation of using eccentric orbits 
+    in the near future.
+    """
+
+    T0 = params.T0
+    per = params.per
+
+    return T0 + 0.5*per
 
 class _stellar_grid_geometry(object):
     """Generates geometry for the stellar hemisphere facing the observer, 
