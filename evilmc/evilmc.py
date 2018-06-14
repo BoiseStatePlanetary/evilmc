@@ -125,37 +125,31 @@ class evmodel(object):
         dx = self.params.Ts/1000.
         dstrad_dtemp = derivative(wrapped, self.params.Ts, dx=dx)
 
-        # psi is the angle between the companion's position vector
-        # and the position vector of the center of the stellar grid element
-        cos_psi =\
-          np.outer(rc_hat[:, 0], grid.xhat).\
-            reshape(rc_hat[:, 0].shape[0],\
-            grid.xhat.shape[0], grid.xhat.shape[1]) +\
-          np.outer(rc_hat[:, 1], grid.yhat).\
-            reshape(rc_hat[:, 1].shape[0],\
-            grid.yhat.shape[0], grid.yhat.shape[1]) +\
-          np.outer(rc_hat[:, 2], grid.zhat).\
-            reshape(rc_hat[:, 2].shape[0],\
-            grid.zhat.shape[0], grid.zhat.shape[1])
-
         # For each point in the orbit,
         for i in range(len(vz)):
 
+            # psi is the angle between the companion's position vector
+            # and the position vector of the center of the stellar grid element
+            cos_psi =\
+                    rc_hat[i, 0]*grid.xhat +\
+                    rc_hat[i, 1]*grid.yhat +\
+                    rc_hat[i, 2]*grid.zhat
+
             # Calculate the deformation for a very slightly tidally deformed 
             # and slowly rotating body with a Love number of 1
-            del_R = _calc_del_R(self.params.q, nrm_rc[i], cos_psi[i], 
+            del_R = _calc_del_R(self.params.q, nrm_rc[i], cos_psi, 
                     self.nrm_Omega, grid.cos_lambda)
 
             # Calculate the small correction to the surface gravity vector 
             # for a very slightly tidally deformed and slowly rotating body
             del_gam_vec_x = _del_gam_vec(del_R, grid.xhat, self.params.q, 
-                    nrm_rc[i], rc_hat[i, 0], cos_psi[i], self.nrm_Omega, 
+                    nrm_rc[i], rc_hat[i, 0], cos_psi, self.nrm_Omega, 
                     self.Omegahat[0], grid.cos_lambda)
             del_gam_vec_y = _del_gam_vec(del_R, grid.yhat, self.params.q, 
-                    nrm_rc[i], rc_hat[i, 1], cos_psi[i], self.nrm_Omega, 
+                    nrm_rc[i], rc_hat[i, 1], cos_psi, self.nrm_Omega, 
                     self.Omegahat[1], grid.cos_lambda)
             del_gam_vec_z = _del_gam_vec(del_R, grid.zhat, self.params.q, 
-                    nrm_rc[i], rc_hat[i, 2], cos_psi[i], self.nrm_Omega, 
+                    nrm_rc[i], rc_hat[i, 2], cos_psi, self.nrm_Omega, 
                     self.Omegahat[2], grid.cos_lambda)
 
             # x/y/z components of the local graviational acceleration
