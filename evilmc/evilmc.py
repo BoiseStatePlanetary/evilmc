@@ -182,7 +182,7 @@ class evmodel(object):
             temp = self.params.Ts + dtemp
             
             # stellar radiation at temp
-            strad_at_temp = np.ones_like(temp)*strad[i] + dstrad_dtemp[i]*dtemp
+            strad_at_temp = np.ones_like(temp)*strad[i] + dstrad_dtemp*dtemp
 
             #limb-darkened profile
             prof = _limb_darkened_profile(self.params.limb_dark, self.params.u,
@@ -291,12 +291,20 @@ def _del_gam_vec(del_R, rhat, q, a, ahat, cos_psi, nrm_Omega, Omegahat,
             the center of each grid element for the host's surface
     """
 
-    term1 = np.sqrt(a*a - 2.*a*cos_psi + 1.)
+    term0 = 2.*del_R*rhat
 
-    return 2.*del_R*rhat +\
-            q*(a*ahat - rhat)/(term1*term1*term1) +\
-            nrm_Omega*nrm_Omega/(a*a*a)*(rhat-Omegahat*cos_lambda) -\
-            q/(a*a)*ahat
+    intermed_term = np.sqrt(a*a - 2.*a*cos_psi + 1.)
+    term1 = q*(a*ahat - rhat)/(intermed_term*intermed_term*intermed_term)
+    
+    term2 = nrm_Omega*nrm_Omega/(a*a*a)*(rhat-Omegahat*cos_lambda)
+    term3 = -q/(a*a)*ahat
+
+    #del_R - num_grid x num_grid
+    #rhat -  num_grid x num_grid
+    #a -     1
+    #ahat -  1
+
+    return term0 + term1 + term2 + term3
 
 def _calc_del_R(q, r, cos_psi, nrm_Omega, cos_lambda):
     """Returns the deformation for a very slightly tidally 
@@ -317,9 +325,11 @@ def _calc_del_R(q, r, cos_psi, nrm_Omega, cos_lambda):
         numpy array: radial distance between the host's center and its 
             surface for each element of the surface grid
     """
-    return q*(1./np.sqrt(r*r - 2.*r*cos_psi + 1.) -\
-            1./np.sqrt(r*r + 1.) - cos_psi/(r*r)) -\
-            nrm_Omega*nrm_Omega/(2.*r*r*r)*(cos_lambda*cos_lambda)
+    term0 = q*(1./np.sqrt(r*r - 2.*r*cos_psi + 1.))
+    term1 = -q*(1./np.sqrt(r*r + 1.) + cos_psi/(r*r))
+    term2 = -nrm_Omega*nrm_Omega/(2.*r*r*r)*(cos_lambda*cos_lambda)
+
+    return term0 + term1 + term2
 
 def _retreive_response_function(which_response_function):
     """Retreives the instrument response function
