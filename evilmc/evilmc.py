@@ -101,21 +101,21 @@ class evmodel(object):
             numpy array: time-series 
 
         Example:
-        >>> import numpy as np
-        >>> import matplotlib.pylab as plt
-        >>> from evilmc import evparams, evmodel
-        >>>
-        >>> time = np.linspace(0, 1., 100)
-        >>> ep = evparams(per=1., a=4.15, T0=0.5, p=1./12.85,
-        >>>     limb_dark='quadratic', u=[0.314709, 0.312125], beta=0.07,
-        >>>     q=1.10e-3, Kz=0., Ts=6350., Ws=[0.,0.,0.1],
-        >>>     F0=30e-6, Aplanet=30e-6, phase_shift=0.)
-        >>>
-        >>> em = evmodel(time, ep,\
-        >>>     supersample_factor=5, exp_time=np.max(time)/time.shape)
-        >>> signal = em.all_signals(num_grid=31)
-        >>> plt.plot(em.phase, signal, ls='', marker='.')
-        >>> plt.show()
+            >>> import numpy as np
+            >>> import matplotlib.pylab as plt
+            >>> from evilmc import evparams, evmodel
+            >>>
+            >>> time = np.linspace(0, 1., 100)
+            >>> ep = evparams(per=1., a=4.15, T0=0.5, p=1./12.85,
+            >>>     limb_dark='quadratic', u=[0.314709, 0.312125], beta=0.07,
+            >>>     q=1.10e-3, Kz=0., Ts=6350., Ws=[0.,0.,0.1],
+            >>>     F0=30e-6, Aplanet=30e-6, phase_shift=0.)
+            >>>
+            >>> em = evmodel(time, ep,\
+            >>>     supersample_factor=5, exp_time=np.max(time)/time.shape)
+            >>> signal = em.all_signals(num_grid=31)
+            >>> plt.plot(em.phase, signal, ls='', marker='.')
+            >>> plt.show()
         """
         
         E = self._calc_evilmc_signal(num_grid=num_grid)
