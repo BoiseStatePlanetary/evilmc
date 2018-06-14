@@ -57,6 +57,9 @@ class evmodel(object):
         self.time = time
         self.params = params
 
+        # Calculate orbital inclination in degrees
+        self.params.inc = np.arccos(self.params.b/self.params.a)*180./np.pi
+
         # Consider finite exposure time
         self.supersample_factor = supersample_factor
         self.exp_time = exp_time
@@ -74,7 +77,6 @@ class evmodel(object):
         phase_params = {"per": params.per, "T0": params.T0}
         self.phase_supersample = _calc_phi(self.time_supersample, phase_params)
         self.phase = _calc_phi(self.time, phase_params)
-        print(self.phase_supersample.shape, self.phase.shape)
 
         # nrm_Omega is the length of the stellar rotation vector
         Omega = params.Ws
@@ -162,12 +164,9 @@ class evmodel(object):
         # Make grid on stellar surface
         grid = _stellar_grid_geometry(self.params, self.Omegahat, num_grid)
 
-        # Calculate orbital inclination in degrees
-        inc = np.arccos(self.params.b/self.params.a)*180./np.pi
-
         # Calculate 3D orbital position of companion
         ke = pyasl.KeplerEllipse(self.params.a, self.params.per, 
-                i=inc, tau=self.params.T0, w=90.)
+                i=self.params.inc, tau=self.params.T0, w=90.)
         rc = ke.xyzPos(self.time_supersample)
 
         # Calculate radial distance between companion and host
@@ -272,6 +271,29 @@ class evmodel(object):
         stellar_disk = stellar_disk/np.nanmin(stellar_disk) - 1.
 
         return stellar_disk
+
+    def _transit(self):
+        """Uses PyAstronomy's quadratic limb-darkening routine to calculate
+        the transit light curve
+
+        Returns:
+            numpy array: transit light curve
+        """
+
+        ma = MandelAgolLC(orbit="circular", ld="quad")
+
+        # If quadratic limb-darkening
+        if(self.limb_dark == 'quadratic'):
+            ma["linLimb"] = self.params.u[0]
+            ma["quadLimb"] = self.params.u[1]
+
+        ma["per"] = params.per
+        # Set using the impact parameter
+        ma["i"] = self.params.inc
+        ma["a"] = self.params.a
+        ma["T0"] = self.params.T0
+        ma["p"] = self.params.p
+
 
 def _reflected_emitted_curve(phase, F0, Aplanet, phase_shift):
     """Returns sinusoidal reflection curve
