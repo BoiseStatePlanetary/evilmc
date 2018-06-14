@@ -10,7 +10,6 @@ from astropy import constants as const
 
 from PyAstronomy.modelSuite.XTran.forTrans import MandelAgolLC
 from PyAstronomy import pyasl
-import transit_utils
 
 # MKS constants
 c = const.c.to('m/s').value
@@ -31,6 +30,23 @@ class evmodel(object):
         exp_time (float, optional): Exposure time (in same units as `time`)
         response_function (str, optional): "Kepler" or "TESS";
             defaults to Kepler (and TESS isn't implemented yet)
+
+    Example:
+        >>> import numpy as np
+        >>> import matplotlib.pylab as plt
+        >>> from evilmc import evparams, evmodel
+        >>>
+        >>> time = np.linspace(0, 1., 100)
+        >>> ep = evparams(per=1., a=4.15, T0=0.5, p=1./12.85,
+        >>>     limb_dark='quadratic', u=[0.314709, 0.312125], beta=0.07,
+        >>>     q=1.10e-3, Kz=0., Ts=6350., Ws=[0.,0.,0.1])
+        >>>
+        >>> em = evmodel(time, ep, supersample_factor=5,\
+        >>>     exp_time=np.max(time)/time.shape)
+        >>> signal = em.evilmc_signal(num_grid=31)
+        >>>
+        >>> plt.plot(em.phase, signal, ls='', marker='.')
+        >>> plt.show()
     """
 
     def __init__(self, time, params,
@@ -45,10 +61,10 @@ class evmodel(object):
         self.supersample_factor = supersample_factor
         self.exp_time = exp_time
         self.time_supersample = time
-        if(self.exp_time > 1):
+        if(self.supersample_factor > 1):
             self.time_supersample =\
-                    transit_utils.supersample_time(time, supersample_factor,
-                            exp_time)
+                    _supersample_time(time, 
+                            self.supersample_factor, self.exp_time)
 
         self.which_response_function = which_response_function
         self.response_function =\
@@ -56,8 +72,9 @@ class evmodel(object):
 
         # Calculate orbital phase
         phase_params = {"per": params.per, "T0": params.T0}
-        self.phase = transit_utils.calc_phi(self.time_supersample, 
-                phase_params)
+        self.phase_supersample = _calc_phi(self.time_supersample, phase_params)
+        self.phase = _calc_phi(self.time, phase_params)
+        print(self.phase_supersample.shape, self.phase.shape)
 
         # nrm_Omega is the length of the stellar rotation vector
         Omega = params.Ws
@@ -74,12 +91,70 @@ class evmodel(object):
         else:
             self.Omegahat = params.Ws/self.nrm_Omega
 
+    def all_signals(self, num_grid=31):
+        """Returns all signals, transits and eclipses included
+
+        Args:
+            num_grid (int, optional): # of lat/long grid points on star
+
+        Returns:
+            numpy array: time-series 
+
+        Example:
+        >>> import numpy as np
+        >>> import matplotlib.pylab as plt
+        >>> from evilmc import evparams, evmodel
+        >>>
+        >>> time = np.linspace(0, 1., 100)
+        >>> ep = evparams(per=1., a=4.15, T0=0.5, p=1./12.85,
+        >>>     limb_dark='quadratic', u=[0.314709, 0.312125], beta=0.07,
+        >>>     q=1.10e-3, Kz=0., Ts=6350., Ws=[0.,0.,0.1],
+        >>>     F0=30e-6, Aplanet=30e-6, phase_shift=0.)
+        >>>
+        >>> em = evmodel(time, ep,\
+        >>>     supersample_factor=5, exp_time=np.max(time)/time.shape)
+        >>> signal = em.all_signals(num_grid=31)
+        >>> plt.plot(em.phase, signal, ls='', marker='.')
+        >>> plt.show()
+        """
+        
+        E = self._calc_evilmc_signal(num_grid=num_grid)
+
+        phase_supersample = self.phase_supersample
+        F0 = self.params.F0
+        Aplanet = self.params.Aplanet
+        phase_shift = self.params.phase_shift
+        R = _reflected_emitted_curve(phase_supersample,\
+                F0, Aplanet, phase_shift)
+
+        ret = E + R
+
+        # Downsample if necessary
+        if(self.supersample_factor > 1):
+            ret = np.mean(ret.reshape(-1, self.supersample_factor), axis=1)
+
+        return ret
 
     def evilmc_signal(self, num_grid=31):
         """Calculates the ellipsoidal variation and beaming effect curves
 
         Args:
             num_grid (int, optional): # of lat/long grid points on star
+
+        Returns:
+            numpy array: time-series ellipsoidal variation and beaming signals
+        """
+        ret = self._calc_evilmc_signal(num_grid)
+
+        # Downsample if necessary
+        if(self.supersample_factor > 1):
+            ret = np.mean(ret.reshape(-1, self.supersample_factor),\
+                    axis=1)
+
+        return ret
+
+    def _calc_evilmc_signal(self, num_grid):
+        """Calculates the ellipsoidal variation and beaming effect curves
 
         Returns:
             numpy array: time-series ellipsoidal variation and beaming signals
@@ -108,7 +183,7 @@ class evmodel(object):
         vz = vz/np.nanmax(vz)*self.params.Kz
 
         #integrated disk brightness
-        disk = np.zeros_like(vz)
+        stellar_disk = np.zeros_like(vz)
 
         # Because the variation in stellar surface temperature with gravity
         # is so small, we approximate the variation in stellar radiation
@@ -191,12 +266,24 @@ class evmodel(object):
             # projected area of each grid element
             dareap = (1. + 2.*del_R)*mu*grid.dcos_theta*grid.dphi
 
-            disk[i] = np.sum(prof*strad_at_temp*dareap)
+            stellar_disk[i] = np.sum(prof*strad_at_temp*dareap)
 
-        # normalize to minimum point
-        disk /= np.nanmin(disk)
+        # normalize and shift
+        stellar_disk = stellar_disk/np.nanmin(stellar_disk) - 1.
 
-        return disk
+        return stellar_disk
+
+def _reflected_emitted_curve(phase, F0, Aplanet, phase_shift):
+    """Returns sinusoidal reflection curve
+
+    Args:
+        phase (numpy array): orbital phase
+        F0 (float): zero-point for phase curve
+        Aplanet (float): phase curve amplitude
+        phase_shift (float): phase curve shift
+    """
+
+    return F0 - Aplanet*np.cos(2.*np.pi*(phase - phase_shift))
 
 def _limb_darkened_profile(limb_dark_law, LDCs, mu):
     """Returns limb-darkened flux
@@ -299,11 +386,6 @@ def _del_gam_vec(del_R, rhat, q, a, ahat, cos_psi, nrm_Omega, Omegahat,
     term2 = nrm_Omega*nrm_Omega/(a*a*a)*(rhat-Omegahat*cos_lambda)
     term3 = -q/(a*a)*ahat
 
-    #del_R - num_grid x num_grid
-    #rhat -  num_grid x num_grid
-    #a -     1
-    #ahat -  1
-
     return term0 + term1 + term2 + term3
 
 def _calc_del_R(q, r, cos_psi, nrm_Omega, cos_lambda):
@@ -360,8 +442,6 @@ def _retreive_response_function(which_response_function):
 
     return {"wavelength": wavelength, "resp": resp}
 
-
-
 def _calc_stellar_brightness(Ts, vz, response_function):
     """Convolves the stellar radiation model 
     with the instrument response function
@@ -396,6 +476,46 @@ def _calc_stellar_brightness(Ts, vz, response_function):
     func = (F_nu.transpose()*resp).transpose()
 
     return np.trapz(func, freq, axis=0)
+
+def _supersample_time(time, supersample_factor, exp_time):
+    """Creates super-sampled time array
+
+    Args:
+        time (numpy array): times
+        supersample_factor (int): number of points subdividing exposure
+        exp_time (float): Exposure time (in same units as `time`)
+
+    Returns:
+        Returns the super-sampled time array
+    """
+
+    if supersample_factor > 1:
+        time_offsets = np.linspace(-exp_time/2., exp_time/2.,
+                supersample_factor)
+        time_supersample = (time_offsets +\
+                time.reshape(time.size, 1)).flatten()
+    else:
+        time_supersample = time
+
+    return time_supersample
+
+def _calc_phi(time, params):
+    """Calculates orbital phase assuming zero eccentricity
+
+    Args:
+        time: observational time (same units at orbital period)
+        params: dict of floats/numpy arrays, including
+            params["per"] - orbital period (any units)
+            params["T0"] - mid-transit time (same units as period)
+
+    Returns:
+        orbital phase
+    """
+
+    T0 = params['T0']
+    per = params['per']
+
+    return ((time - T0) % per)/per
 
 class _stellar_grid_geometry(object):
     """Generates geometry for the stellar hemisphere facing the observer, 
@@ -473,7 +593,8 @@ class evparams(object):
 
         # all those keys will be initialized as class attributes
         allowed_keys = set(['per', 'a', 'T0', 
-            'p', 'limb_dark', 'u', 'beta', 'b', 'q', 'Kz', 'Ts', 'Ws'])
+            'p', 'limb_dark', 'u', 'beta', 'b', 'q', 'Kz', 'Ts', 'Ws',
+            'F0', 'Aplanet', 'phase_shift'])
         # initialize all allowed keys to false
         self.__dict__.update((key, 0.) for key in allowed_keys)
         # and update the given keys by their given values
