@@ -120,8 +120,12 @@ class evmodel(object):
         strad = _calc_stellar_brightness(self.params.Ts, vz, 
                 self.response_function)
         # Calculate temperature derivative of stellar radiation
+        #
+        # Since we're calculating the *temperature* derivative, the value of
+        #   vz doesn't matter, so to avoid calling the function several times
+        #   I'll just take the first value in vz.
         wrapped = lambda x:\
-                _calc_stellar_brightness(x, vz, self.response_function)
+                _calc_stellar_brightness(x, vz[0], self.response_function)
         dx = self.params.Ts/1000.
         dstrad_dtemp = derivative(wrapped, self.params.Ts, dx=dx)
 
