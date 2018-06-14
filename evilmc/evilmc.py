@@ -30,23 +30,6 @@ class evmodel(object):
         exp_time (float, optional): Exposure time (in same units as `time`)
         response_function (str, optional): "Kepler" or "TESS";
             defaults to Kepler (and TESS isn't implemented yet)
-
-    Example:
-        >>> import numpy as np
-        >>> import matplotlib.pylab as plt
-        >>> from evilmc import evparams, evmodel
-        >>>
-        >>> time = np.linspace(0, 1., 100)
-        >>> ep = evparams(per=1., a=4.15, T0=0.5, p=1./12.85,
-        >>>     limb_dark='quadratic', u=[0.314709, 0.312125], beta=0.07,
-        >>>     q=1.10e-3, Kz=0., Ts=6350., Ws=[0.,0.,0.1])
-        >>>
-        >>> em = evmodel(time, ep, supersample_factor=5,\
-        >>>     exp_time=np.max(time)/time.shape)
-        >>> signal = em.evilmc_signal(num_grid=31)
-        >>>
-        >>> plt.plot(em.phase, signal, ls='', marker='.')
-        >>> plt.show()
     """
 
     def __init__(self, time, params,
@@ -106,14 +89,12 @@ class evmodel(object):
             >>> import numpy as np
             >>> import matplotlib.pylab as plt
             >>> from evilmc import evparams, evmodel
-            >>>
             >>> time = np.linspace(0, 1., 100)
             >>> ep = evparams(per=1., a=4.15, T0=0.5, p=1./12.85,
             >>>     limb_dark='quadratic', u=[0.314709, 0.312125], beta=0.07,
             >>>     q=1.10e-3, Kz=0., Ts=6350., Ws=[0.,0.,0.1],
             >>>     F0=30e-6, Aplanet=30e-6, phase_shift=0.)
-            >>>
-            >>> em = evmodel(time, ep,\
+            >>> em = evmodel(time, ep,
             >>>     supersample_factor=5, exp_time=np.max(time)/time.shape)
             >>> signal = em.all_signals(num_grid=31)
             >>> plt.plot(em.phase, signal, ls='', marker='.')
@@ -147,6 +128,20 @@ class evmodel(object):
 
         Returns:
             numpy array: time-series ellipsoidal variation and beaming signals
+
+        Example:
+            >>> import numpy as np
+            >>> import matplotlib.pylab as plt
+            >>> from evilmc import evparams, evmodel
+            >>> time = np.linspace(0, 1., 100)
+            >>> ep = evparams(per=1., a=4.15, T0=0.5, p=1./12.85,
+            >>>     limb_dark='quadratic', u=[0.314709, 0.312125], beta=0.07,
+            >>>     q=1.10e-3, Kz=0., Ts=6350., Ws=[0.,0.,0.1])
+            >>> em = evmodel(time, ep, supersample_factor=5,
+            >>>     exp_time=np.max(time)/time.shape)
+            >>> signal = em.evilmc_signal(num_grid=31)
+            >>> plt.plot(em.phase, signal, ls='', marker='.')
+            >>> plt.show()
         """
         ret = self._calc_evilmc_signal(num_grid)
 
@@ -644,10 +639,10 @@ class evparams(object):
         >>> import numpy as np
         >>> from evilmc import evparams
         >>> ev = evparams(per=1., a=4.15, T0=0.5, p=1./12.85,
-                limb_dark='quadratic', u=[0.314709, 0.312125], beta=0.07,
-                q=1.10e-3, Kz=1e-6, Ts=6350., Ws=[0.,0.,0.118])
+        >>>     limb_dark='quadratic', u=[0.314709, 0.312125], beta=0.07,
+        >>>     q=1.10e-3, Kz=1e-6, Ts=6350., Ws=[0.,0.,0.1])
         >>> # Print one example
-        >>> print(ev.time)
+        >>> print(ev.per)
     """
 
     # From https://stackoverflow.com/questions/8187082/how-can-you-set-class-attributes-from-variable-arguments-kwargs-in-python
