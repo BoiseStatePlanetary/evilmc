@@ -9,3 +9,5 @@ API
 
 .. autoclass:: evilmc.evparams
    :inherited-members:
+
+.. autofunction:: convert_Kz

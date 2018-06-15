@@ -5,6 +5,7 @@ from scipy.integrate import simps
 from scipy.misc import derivative
 
 from astropy import constants as const
+from astropy import units as u
 
 from PyAstronomy.modelSuite.XTran.forTrans import MandelAgolLC
 from PyAstronomy import pyasl
@@ -14,7 +15,7 @@ c = const.c.to('m/s').value
 h = const.h.to("J*s").value
 k_B = const.k_B.to("J/K").value
 
-__all__= ['evmodel', 'evparams']
+__all__= ['evmodel', 'evparams', 'convert_Kz']
 
 class evmodel(object):
     """Returns ellipsoidal variation of a slowly-rotating star induced by a 
@@ -354,6 +355,57 @@ class evmodel(object):
 
         return eclipse
 
+def convert_Kz(Mp=None, Ms=None, q=None, a=0.1, inc=90., Kz=None):
+    """Calculate and/or convert a radial velocity to fractions of the speed of
+    light
+
+    Args:
+        Mp (float, optional): companion mass in units of Jupiter masses 
+            (1.8981872e27 kg), defaults to None
+        Ms (float, optional): host star mass in solar units 
+            (1.9884754e30 kg), defaults to None
+        q (float, optional): companion-host mass ratio, defaults to None
+        a (float): semi-major axis in AU, defaults to 0.1
+        inc (float): inclination angle in degrees, defaults to 90 degrees
+        Kz (float, optional): radial velocity amplitude in m/s, defaults to
+            None
+
+    Returns:
+        float: radial velocity as fraction of speed of light
+
+    Example:
+        >>> from evilmc import convert_Kz
+        >>> Kz = 93. # in m/s - typical for short-period hot Jupiter
+        >>> print(convert_Kz(Kz=Kz))
+        
+        >>> # Or if you have planetary and stellar mass
+        >>> Mp = 1. # Jupiter masses
+        >>> Ms = 1. # solar masses
+        >>> print(convert_Kz(Mp=Mp, Ms=Ms))
+
+        >>> # Or if you have planetary mass and the mass ratio
+        >>> q = 1.e-3
+        >>> Mp = 1.
+        >>> print(convert_Kz(Mp=Mp, q=q))
+    """
+    
+    MJup_to_MSun = (u.jupiterMass.to('kg'))/(u.solMass.to('kg'))
+
+    def _calculate_RV(Mp, Ms, a, inc):
+
+        # From Lovis & Fischer (2010), Eqn (13)
+        RV0 = 28.4329/c #m/s to fractions of the speed of light
+        return RV0*Mp*np.sin(inc*np.pi/180.)/\
+                np.sqrt(Mp*MJup_to_MSun + Ms)/np.sqrt(a)
+
+    if(Kz is not None):
+        return Kz/c
+    elif((Mp is not None) and (Ms is not None)):
+        return _calculate_RV(Mp, Ms, a, inc)
+    elif((Mp is not None) and (q is not None)):
+        Ms = Mp/q*MJup_to_MSun
+        return _calculate_RV(Mp, Ms, a, inc)
+
 def _reflected_emitted_curve(phase, F0, Aplanet, phase_shift):
     """Returns sinusoidal reflection curve
 
@@ -673,7 +725,7 @@ class evparams(object):
     Example:
         >>> import numpy as np
         >>> from evilmc import evparams
-        >>> ev = evparams(per=1., a=4.15, T0=0.5, p=1./12.85,
+        >>> ep = evparams(per=1., a=4.15, T0=0.5, p=1./12.85,
         >>>     limb_dark='quadratic', u=[0.314709, 0.312125], beta=0.07,
         >>>     q=1.10e-3, Kz=1e-6, Ts=6350., Ws=[0.,0.,0.1])
         >>> # Print one example
