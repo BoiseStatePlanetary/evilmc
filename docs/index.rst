@@ -16,4 +16,10 @@ Contents:
    :maxdepth: 2
 
    installation
+   quickstart
+   tutorial
    api
+
+Release Notes
+-------------
+.. include::  ../changelog.rst

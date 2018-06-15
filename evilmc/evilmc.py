@@ -4,8 +4,6 @@ import numpy as np
 from scipy.integrate import simps
 from scipy.misc import derivative
 
-import matplotlib.pyplot as plt
-
 from astropy import constants as const
 
 from PyAstronomy.modelSuite.XTran.forTrans import MandelAgolLC
@@ -56,11 +54,6 @@ class evmodel(object):
         self.response_function =\
                 _retreive_response_function(self.which_response_function)
 
-        # Calculate orbital phase
-        phase_params = {"per": params.per, "T0": params.T0}
-        self.phase_supersample = _calc_phi(self.time_supersample, phase_params)
-        self.phase = _calc_phi(self.time, phase_params)
-
         # nrm_Omega is the length of the stellar rotation vector
         Omega = params.Ws
         self.nrm_Omega = np.sqrt(
@@ -97,22 +90,28 @@ class evmodel(object):
             >>> em = evmodel(time, ep,
             >>>     supersample_factor=5, exp_time=np.max(time)/time.shape)
             >>> signal = em.all_signals(num_grid=31)
-            >>> plt.plot(em.phase, signal, ls='', marker='.')
+            >>> plt.plot(time, signal, ls='', marker='.')
             >>> plt.show()
         """
+
+        # Because I want to zero-out the eclipse portion of the signal
+        #   even if the eclipse isn't included in the original request,
+        #   I'm tacking on one time point, right in the middle of the 
+        #   eclipse.
+        TE = _calc_eclipse_time(self.params)
+        self.time_supersample = np.append(self.time_supersample, TE)
+
+        # Calculate orbital phase
+        phase_params = {"per": self.params.per, "T0": self.params.T0}
+        phase_supersample = _calc_phi(self.time_supersample, phase_params)
         
         transit = self._transit() - 1.
 
         eclipse_depth = self.params.F0 + self.params.Aplanet
         eclipse = self._eclipse(eclipse_depth)
-        # Rescale eclipse
-        eclipse = 1. - eclipse
-        eclipse /= eclipse_depth
-        eclipse = 1. - eclipse
 
         E = self._calc_evilmc_signal(num_grid=num_grid)
 
-        phase_supersample = self.phase_supersample
         F0 = self.params.F0
         Aplanet = self.params.Aplanet
         phase_shift = self.params.phase_shift
@@ -120,6 +119,12 @@ class evmodel(object):
                 F0, Aplanet, phase_shift)
 
         ret = transit + E + R*eclipse
+
+        # Now remove the extra time point at the end of the array
+        shift_point = ret[-1]
+        ret -= shift_point
+        ret = ret[:-1]
+        self.time_supersample = self.time_supersample[:-1]
 
         # Downsample if necessary
         if(self.supersample_factor > 1):
@@ -147,10 +152,24 @@ class evmodel(object):
             >>> em = evmodel(time, ep, supersample_factor=5,
             >>>     exp_time=np.max(time)/time.shape)
             >>> signal = em.evilmc_signal(num_grid=31)
-            >>> plt.plot(em.phase, signal, ls='', marker='.')
+            >>> plt.plot(time, signal, ls='', marker='.')
             >>> plt.show()
         """
+
+        # Because I want to zero-out the eclipse portion of the signal
+        #   even if the eclipse isn't included in the original request,
+        #   I'm tacking on one time point, right in the middle of the 
+        #   eclipse.
+        TE = _calc_eclipse_time(self.params)
+        self.time_supersample = np.append(self.time_supersample, TE)
+
         ret = self._calc_evilmc_signal(num_grid)
+
+        # Now remove the extra time point at the end of the array
+        shift_point = ret[-1]
+        ret -= shift_point
+        ret = ret[:-1]
+        self.time_supersample = self.time_supersample[:-1]
 
         # Downsample if necessary
         if(self.supersample_factor > 1):
@@ -272,7 +291,7 @@ class evmodel(object):
             stellar_disk[i] = np.sum(prof*strad_at_temp*dareap)
 
         # normalize and shift
-        stellar_disk = stellar_disk/np.nanmin(stellar_disk) - 1.
+        stellar_disk = stellar_disk/np.nanmean(stellar_disk) - 1.
 
         return stellar_disk
 
@@ -326,7 +345,14 @@ class evmodel(object):
         ma["T0"] = TE
         ma["p"] = np.sqrt(eclipse_depth)
 
-        return ma.evaluate(self.time_supersample)
+        eclipse = ma.evaluate(self.time_supersample)
+
+        # Rescale eclipse
+        eclipse = 1. - eclipse
+        eclipse /= eclipse_depth
+        eclipse = 1. - eclipse
+
+        return eclipse
 
 def _reflected_emitted_curve(phase, F0, Aplanet, phase_shift):
     """Returns sinusoidal reflection curve
