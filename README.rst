@@ -14,7 +14,7 @@ A python version of the EVIL-MC code
 Installation
 ------------
 pip
----
+^^^
 You can install ``evilmc`` with pip (recommended):
 
 ::
@@ -22,7 +22,7 @@ You can install ``evilmc`` with pip (recommended):
     $ pip install evilmc
 
 From source
------------
+^^^^^^^^^^^
 You can also install directly from source. The most current `stable release <https://pypi.python.org/pypi/evilmc/>`_ is up on PyPI.
 
 
@@ -44,7 +44,7 @@ Requirements
 
 License
 -------
-bs1-1.0
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 Authors
 -------
