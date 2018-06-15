@@ -37,11 +37,10 @@ Note that you'll need to ``cd`` out of the source directory **before** you can i
 
 Requirements
 ^^^^^^^^^^^^
-numpy>=1.14.3
-PyAstronomy>=0.12.0
-six>=1.11.0
-transit_utils>=0.0.2
-astropy>=2.0
+* numpy>=1.14.3
+* PyAstronomy>=0.12.0
+* six>=1.11.0
+* astropy>=2.0
 
 License
 -------
