@@ -103,6 +103,13 @@ class evmodel(object):
         
         transit = self._transit() - 1.
 
+        eclipse_depth = self.params.F0 + self.params.Aplanet
+        eclipse = self._eclipse(eclipse_depth)
+        # Rescale eclipse
+        eclipse = 1. - eclipse
+        eclipse /= eclipse_depth
+        eclipse = 1. - eclipse
+
         E = self._calc_evilmc_signal(num_grid=num_grid)
 
         phase_supersample = self.phase_supersample
@@ -112,7 +119,7 @@ class evmodel(object):
         R = _reflected_emitted_curve(phase_supersample,\
                 F0, Aplanet, phase_shift)
 
-        ret = transit + E + R
+        ret = transit + E + R*eclipse
 
         # Downsample if necessary
         if(self.supersample_factor > 1):
@@ -293,15 +300,17 @@ class evmodel(object):
 
         return ma.evaluate(self.time_supersample)
 
-    def _eclipse(self):
+    def _eclipse(self, eclipse_depth):
         """
         Uses PyAstronomy's transit light curve routine with uniform
         limb to calculate eclipse
+
+        Args:
+            eclipse_depth (float): eclipse depth
         """
 
-        ma = self.ma
+        ma = MandelAgolLC(orbit="circular", ld="quad")
         TE = _calc_eclipse_time(self.params)
-        eclipse_depth = self.params.F0 + self.params.Aplanet
 
         ma = MandelAgolLC(orbit="circular", ld="quad")
 
@@ -317,7 +326,7 @@ class evmodel(object):
         ma["T0"] = TE
         ma["p"] = np.sqrt(eclipse_depth)
 
-        return cp.evaluate(self.time_supersample)
+        return ma.evaluate(self.time_supersample)
 
 def _reflected_emitted_curve(phase, F0, Aplanet, phase_shift):
     """Returns sinusoidal reflection curve
