@@ -1,1 +1,1 @@
-include data/kepler_response_hires1.txt
+include README.rst changelog.rst LICENSE.txt requirements.txt data/kepler_response_hires1.txt
