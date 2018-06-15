@@ -11,9 +11,6 @@ evilmc
 
 A python version of the EVIL-MC code
 
-Usage
------
-
 Installation
 ------------
 pip
