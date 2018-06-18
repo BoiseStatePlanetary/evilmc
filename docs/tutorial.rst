@@ -77,6 +77,54 @@ You can also include finite time-sampling effects, which tend to smooth the ligh
 
     em = evmodel(time, ep, supersample_factor=5, exp_time=0.01)
 
+Fitting a Dataset
+-----------------
+In principle, ``evilmc`` has 16 free parameters that can be fit to a model, but
+I wouldn't recommend trying to fit all of them at once. 
+
+And some of them, ``evilmc`` models are more sensitive to than others -- for example, the ellipsoidal variation depends in a simple way on the mass ratio `q`, but that signal is pretty insensitive to the orbital period `per`. So you should know the orbital period pretty well before you try to fit the ellipsoidal variation.
+
+Below is an example of fitting `q` to a synthetic dataset.
+
+::
+
+    %matplotlib inline
+    import numpy as np
+    import matplotlib.pylab as plt
+    from evilmc import evparams, evmodel
+
+    from numpy.random import normal
+
+    from scipy.optimize import curve_fit
+
+    time = np.linspace(0, 1., 100)
+    ep = evparams(per=1., a=4.15, T0=0, p=1./12.85,
+                limb_dark='quadratic', u=[0.314709, 0.312125], beta=0.07,
+                q=1.10e-3, Kz=1e-6, Ts=6350., Ws=[0.,0.,0.1],
+                F0=30e-6, Aplanet=30e-6, phase_shift=0.)
+    em = evmodel(time, ep, supersample_factor=5, exp_time=np.max(time)/time.shape)
+
+    def fit_signal(time, q):
+        ep.q = q
+        return em.all_signals()
+    
+    noise = 10e-6 # 5 ppm noise
+    signal = fit_signal(time, 1.1e-3)
+    noisy_signal = signal + normal(scale=noise, size=len(signal))
+
+    popt, pcov = curve_fit(fit_signal, time, noisy_signal, 
+                           sigma=np.ones_like(signal)*noise, 
+                           p0=1.1e-3*(1. + normal(scale=3e-3)), 
+                           bounds=(0, 0.01))
+    print(u'Correct q is %.2e, and fit is %.2e +- %.2g.' %\
+        (1.1e-3, popt[0], np.sqrt(pcov[0,0])))
+
+    plt.plot(time, fit_signal(time, popt[0]), color='red', lw=3)
+    plt.plot(time, noisy_signal, marker='o', ls='')
+    plt.ylim([-0.00001, 0.0001])
+
+.. image:: fit_signal.png
+
 Limitations and Assumptions
 -------------------------------------
 Especially in this early version of ``evilmc`` (0.1.0), the code is quite

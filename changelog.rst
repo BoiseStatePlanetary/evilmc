@@ -1,5 +1,9 @@
 .. :changelog:
 
+0.1.5 (2018-06-15)
+~~~~~~~~~~~~~~~~~~
+- Fixed documentation!
+
 0.1.3 (2018-06-15)
 ~~~~~~~~~~~~~~~~~~
 - Attempted to follow instructions `here <https://github.com/rtfd/readthedocs.org/issues/1803>`_

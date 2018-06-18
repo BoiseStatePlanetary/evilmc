@@ -18,7 +18,7 @@ dependency_links = [x.strip().replace('git+', '') for x in all_reqs if x.startsw
 
 setuptools.setup(
     name="evilmc",
-    version="0.1.4",
+    version="0.1.5",
     url="https://github.com/BoiseStatePlanetary/evilmc",
     download_url='https://github.com/BoiseStatePlanetary/evilmc/archive/'+__version__+'.tar.gz',
     license='BSD',
