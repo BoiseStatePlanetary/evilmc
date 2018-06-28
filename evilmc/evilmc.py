@@ -10,6 +10,8 @@ from astropy import units as u
 from PyAstronomy.modelSuite.XTran.forTrans import MandelAgolLC
 from PyAstronomy import pyasl
 
+import pkg_resources
+
 # MKS constants
 c = const.c.to('m/s').value
 h = const.h.to("J*s").value
@@ -558,7 +560,8 @@ def _retreive_response_function(which_response_function):
 
     if(which_response_function == "Kepler"):
         # https://keplergo.arc.nasa.gov/kepler_response_hires1.txt
-        response_function_file = "data/kepler_response_hires1.txt"
+        path = 'data/kepler_response_hires1.txt'  # always use slash
+        response_function_file = pkg_resources.resource_filename(__name__, path)
 
         wavelength, resp =\
                 np.genfromtxt(response_function_file,\

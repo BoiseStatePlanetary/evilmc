@@ -1,5 +1,13 @@
 .. :changelog:
 
+0.1.17 (2018-06-28)
+~~~~~~~~~~~~~~~~~~
+- Trying to correctly reference data file
+
+0.1.16 (2018-06-28)
+~~~~~~~~~~~~~~~~~~
+- Restored MANIFEST.in - I had the wrong path to the data file.
+
 0.1.15 (2018-06-28)
 ~~~~~~~~~~~~~~~~~~
 - Remove MANIFEST.in altogether in hopes that will fix things

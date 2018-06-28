@@ -1,0 +1,2 @@
+include *.rst *.txt
+include evilmc/data/kepler_response_hires1.txt
