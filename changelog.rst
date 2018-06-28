@@ -1,5 +1,17 @@
 .. :changelog:
 
+0.1.15 (2018-06-28)
+~~~~~~~~~~~~~~~~~~
+- Remove MANIFEST.in altogether in hopes that will fix things
+
+0.1.14 (2018-06-28)
+~~~~~~~~~~~~~~~~~~
+- Forgot to correct MANIFEST.in
+
+0.1.13 (2018-06-28)
+~~~~~~~~~~~~~~~~~~
+- Forgot to correct MANIFEST.in
+
 0.1.12 (2018-06-28)
 ~~~~~~~~~~~~~~~~~~
 - Moved Kepler response function to root directory

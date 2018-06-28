@@ -558,7 +558,7 @@ def _retreive_response_function(which_response_function):
 
     if(which_response_function == "Kepler"):
         # https://keplergo.arc.nasa.gov/kepler_response_hires1.txt
-        response_function_file = "kepler_response_hires1.txt"
+        response_function_file = "data/kepler_response_hires1.txt"
 
         wavelength, resp =\
                 np.genfromtxt(response_function_file,\

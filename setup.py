@@ -24,7 +24,7 @@ setuptools.setup(
 
     include_package_data = True,
     package_dir={'evilmc': 'evilmc'}, 
-    package_data={'evilmc': ['kepler_response_hires1.txt']},
+    package_data={'evilmc': ['data/kepler_response_hires1.txt']},
     install_requires=['numpy', 'PyAstronomy', 'six', 'astropy'],
     classifiers=[
         'Development Status :: 2 - Pre-Alpha'
