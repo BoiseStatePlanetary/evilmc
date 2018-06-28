@@ -16,7 +16,7 @@ dependency_links = [x.strip().replace('git+', '') for x in all_reqs if x.startsw
 
 setuptools.setup(
     name="evilmc",
-    version="0.1.8",
+    version=__version__,
     url="https://github.com/BoiseStatePlanetary/evilmc",
     download_url='https://github.com/BoiseStatePlanetary/evilmc/archive/'+__version__+'.tar.gz',
     license='BSD',
@@ -31,7 +31,8 @@ setuptools.setup(
 
     include_package_data = True,
     package_dir={'evilmc': 'evilmc'}, 
-    package_data={'evilmc': ['../data/kepler_response_hires1.txt']},
+    package_data={'evilmc': ['../data/kepler_response_hires1.txt',
+    'requirements.txt']},
     install_requires=install_requires,
     dependency_links=dependency_links,
 

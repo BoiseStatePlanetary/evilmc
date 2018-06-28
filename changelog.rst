@@ -1,5 +1,9 @@
 .. :changelog:
 
+0.1.8 (2018-06-28)
+~~~~~~~~~~~~~~~~~~
+- Tried to fixed path to requirements.txt in setup.py
+
 0.1.7 (2018-06-28)
 ~~~~~~~~~~~~~~~~~~
 - Tried to fixed path to requirements.txt in setup.py
