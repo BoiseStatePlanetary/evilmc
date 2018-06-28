@@ -1,5 +1,13 @@
 .. :changelog:
 
+0.1.12 (2018-06-28)
+~~~~~~~~~~~~~~~~~~
+- Moved Kepler response function to root directory
+
+0.1.11 (2018-06-28)
+~~~~~~~~~~~~~~~~~~
+- Forgot to remove requirements.txt from setup.py
+
 0.1.10 (2018-06-28)
 ~~~~~~~~~~~~~~~~~~
 - Moving required package list to setup.py directly

@@ -7,13 +7,6 @@ import evilmc
 
 __version__ = evilmc.__version__
 
-# get the dependencies and installs
-with open('requirements.txt') as f:
-    all_reqs = f.read().split('\n')
-
-install_requires = [x.strip() for x in all_reqs if 'git+' not in x]
-dependency_links = [x.strip().replace('git+', '') for x in all_reqs if x.startswith('git+')]
-
 setuptools.setup(
     name="evilmc",
     version=__version__,
@@ -31,10 +24,8 @@ setuptools.setup(
 
     include_package_data = True,
     package_dir={'evilmc': 'evilmc'}, 
-    package_data={'evilmc': ['../data/kepler_response_hires1.txt']},
+    package_data={'evilmc': ['kepler_response_hires1.txt']},
     install_requires=['numpy', 'PyAstronomy', 'six', 'astropy'],
-    dependency_links=dependency_links,
-
     classifiers=[
         'Development Status :: 2 - Pre-Alpha'
     ],
