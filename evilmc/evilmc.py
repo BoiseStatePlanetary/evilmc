@@ -331,29 +331,34 @@ class evmodel(object):
             eclipse_depth (float): eclipse depth
         """
 
-        ma = MandelAgolLC(orbit="circular", ld="quad")
-        TE = _calc_eclipse_time(self.params)
+        # Make eclipse_depth isn't zero!
+        if(eclipse_depth != 0):
+            ma = MandelAgolLC(orbit="circular", ld="quad")
+            TE = _calc_eclipse_time(self.params)
 
-        ma = MandelAgolLC(orbit="circular", ld="quad")
+            ma = MandelAgolLC(orbit="circular", ld="quad")
 
-        # If quadratic limb-darkening
-        if(self.params.limb_dark == 'quadratic'):
-            ma["linLimb"] = 0.
-            ma["quadLimb"] = 0.
+            # If quadratic limb-darkening
+            if(self.params.limb_dark == 'quadratic'):
+                ma["linLimb"] = 0.
+                ma["quadLimb"] = 0.
 
-        ma["per"] = self.params.per
-        # Set using the impact parameter
-        ma["i"] = self.params.inc
-        ma["a"] = self.params.a
-        ma["T0"] = TE
-        ma["p"] = np.sqrt(eclipse_depth)
+            ma["per"] = self.params.per
+            # Set using the impact parameter
+            ma["i"] = self.params.inc
+            ma["a"] = self.params.a
+            ma["T0"] = TE
+            ma["p"] = np.sqrt(eclipse_depth)
 
-        eclipse = ma.evaluate(self.time_supersample)
+            eclipse = ma.evaluate(self.time_supersample)
 
-        # Rescale eclipse
-        eclipse = 1. - eclipse
-        eclipse /= eclipse_depth
-        eclipse = 1. - eclipse
+            # Rescale eclipse
+            eclipse = 1. - eclipse
+            eclipse /= eclipse_depth
+            eclipse = 1. - eclipse
+
+        elif(eclipse_depth == 0.):
+            eclipse = 0.
 
         return eclipse
 
