@@ -241,56 +241,49 @@ class evmodel(object):
         # Calculate the small correction to the surface gravity vector 
         # for a very slightly tidally deformed and slowly rotating body
         del_gam_vec_x = _del_gam_vec(del_R, grid.xhat, self.params.q, 
-                nrm_rc[i], rc_hat[i, 0], cos_psi, self.nrm_Omega, 
+                nrm_rc, rc_hat[:, 0], cos_psi, self.nrm_Omega, 
                 self.Omegahat[0], grid.cos_lambda)
         del_gam_vec_y = _del_gam_vec(del_R, grid.yhat, self.params.q, 
-                nrm_rc[i], rc_hat[i, 1], cos_psi, self.nrm_Omega, 
+                nrm_rc, rc_hat[:, 1], cos_psi, self.nrm_Omega, 
                 self.Omegahat[1], grid.cos_lambda)
         del_gam_vec_z = _del_gam_vec(del_R, grid.zhat, self.params.q, 
-                nrm_rc[i], rc_hat[i, 2], cos_psi, self.nrm_Omega, 
+                nrm_rc, rc_hat[:, 2], cos_psi, self.nrm_Omega, 
                 self.Omegahat[2], grid.cos_lambda)
 
-        # For each point in the orbit,
-        for i in range(len(vz)):
+        # x/y/z components of the local graviational acceleration
+        gz = -grid.zhat[:,:,None] + del_gam_vec_z
 
-            # x/y/z components of the local graviational acceleration
-            gx = -grid.xhat + del_gam_vec_x[:,:,i]
-            gy = -grid.yhat + del_gam_vec_y[:,:,i]
-            gz = -grid.zhat + del_gam_vec_z[:,:,i]
+        # dot product between rhat and the components of the 
+        # gravity-correction vector
+        rhat_dot_dgam = grid.xhat[:,:,None]*del_gam_vec_x +\
+                grid.yhat[:,:,None]*del_gam_vec_y +\
+                grid.zhat[:,:,None]*del_gam_vec_z
 
-            # dot product between rhat and the components of the 
-            # gravity-correction vector
-            rhat_dot_dgam = grid.xhat*del_gam_vec_x[:,:,i] +\
-                    grid.yhat*del_gam_vec_y[:,:,i] +\
-                    grid.zhat*del_gam_vec_z[:,:,i]
-            # magnitude of modified local gravity vector
-            nrm_g = 1. - rhat_dot_dgam
+        # magnitude of modified local gravity vector
+        nrm_g = 1. - rhat_dot_dgam
 
-            # cos of angle between the line of sight and the gravity vector
-            mu = abs(gz)/nrm_g
+        # cos of angle between the line of sight and the gravity vector
+        mu = abs(gz)/nrm_g
 
-            dgam0 = _rhat_dot_del_gam0(self.params.q, nrm_rc[i], 
-                    self.nrm_Omega)
+        dgam0 = _rhat_dot_del_gam0(self.params.q, nrm_rc, self.nrm_Omega)
 
-            # small temperature correction
-            dtemp = _del_temp(self.params.beta, rhat_dot_dgam, dgam0)*\
-                    self.params.Ts
+        # small temperature correction
+        dtemp = _del_temp(self.params.beta, rhat_dot_dgam, dgam0)*\
+                self.params.Ts
 
-            temp = self.params.Ts + dtemp
+        temp = self.params.Ts + dtemp
             
-            # stellar radiation at temp
-            strad_at_temp = np.ones_like(temp)*strad[i] + dstrad_dtemp*dtemp
+        # stellar radiation at temp
+        strad_at_temp = np.ones_like(temp)*strad + dstrad_dtemp*dtemp
 
-            #limb-darkened profile
-            prof = _limb_darkened_profile(self.params.limb_dark, self.params.u,
-                    mu)
+        #limb-darkened profile
+        prof = _limb_darkened_profile(self.params.limb_dark, self.params.u,
+                mu)
 
-            # projected area of each grid element
-            dareap = (1. + 2.*del_R[:,:,i])*mu*grid.dcos_theta*grid.dphi
+        # projected area of each grid element
+        dareap = (1. + 2.*del_R)*mu*grid.dcos_theta*grid.dphi
 
-            stellar_disk[i] = np.sum(prof*strad_at_temp*dareap)
-
-        # normalize and shift
+        stellar_disk = np.sum(prof*strad_at_temp*dareap, axis=(0,1))
         stellar_disk = stellar_disk/np.nanmean(stellar_disk) - 1.
 
         return stellar_disk
