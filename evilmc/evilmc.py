@@ -229,43 +229,40 @@ class evmodel(object):
         dx = self.params.Ts/1000.
         dstrad_dtemp = derivative(wrapped, self.params.Ts, dx=dx)
 
+        cos_psi =   rc_hat[:,0]*grid.xhat[:,:,None] +\
+                    rc_hat[:,1]*grid.yhat[:,:,None] +\
+                    rc_hat[:,2]*grid.zhat[:,:,None] 
+
+        # Calculate the deformation for a very slightly tidally deformed 
+        # and slowly rotating body with a Love number of 1
+        del_R = _calc_del_R(self.params.q, nrm_rc, cos_psi, self.nrm_Omega, 
+                grid.cos_lambda)
+
+        # Calculate the small correction to the surface gravity vector 
+        # for a very slightly tidally deformed and slowly rotating body
+        del_gam_vec_x = _del_gam_vec(del_R, grid.xhat, self.params.q, 
+                nrm_rc[i], rc_hat[i, 0], cos_psi, self.nrm_Omega, 
+                self.Omegahat[0], grid.cos_lambda)
+        del_gam_vec_y = _del_gam_vec(del_R, grid.yhat, self.params.q, 
+                nrm_rc[i], rc_hat[i, 1], cos_psi, self.nrm_Omega, 
+                self.Omegahat[1], grid.cos_lambda)
+        del_gam_vec_z = _del_gam_vec(del_R, grid.zhat, self.params.q, 
+                nrm_rc[i], rc_hat[i, 2], cos_psi, self.nrm_Omega, 
+                self.Omegahat[2], grid.cos_lambda)
+
         # For each point in the orbit,
         for i in range(len(vz)):
 
-            # psi is the angle between the companion's position vector
-            # and the position vector of the center of the stellar grid element
-            cos_psi =\
-                    rc_hat[i, 0]*grid.xhat +\
-                    rc_hat[i, 1]*grid.yhat +\
-                    rc_hat[i, 2]*grid.zhat
-
-            # Calculate the deformation for a very slightly tidally deformed 
-            # and slowly rotating body with a Love number of 1
-            del_R = _calc_del_R(self.params.q, nrm_rc[i], cos_psi, 
-                    self.nrm_Omega, grid.cos_lambda)
-
-            # Calculate the small correction to the surface gravity vector 
-            # for a very slightly tidally deformed and slowly rotating body
-            del_gam_vec_x = _del_gam_vec(del_R, grid.xhat, self.params.q, 
-                    nrm_rc[i], rc_hat[i, 0], cos_psi, self.nrm_Omega, 
-                    self.Omegahat[0], grid.cos_lambda)
-            del_gam_vec_y = _del_gam_vec(del_R, grid.yhat, self.params.q, 
-                    nrm_rc[i], rc_hat[i, 1], cos_psi, self.nrm_Omega, 
-                    self.Omegahat[1], grid.cos_lambda)
-            del_gam_vec_z = _del_gam_vec(del_R, grid.zhat, self.params.q, 
-                    nrm_rc[i], rc_hat[i, 2], cos_psi, self.nrm_Omega, 
-                    self.Omegahat[2], grid.cos_lambda)
-
             # x/y/z components of the local graviational acceleration
-            gx = -grid.xhat + del_gam_vec_x
-            gy = -grid.yhat + del_gam_vec_y
-            gz = -grid.zhat + del_gam_vec_z
+            gx = -grid.xhat + del_gam_vec_x[:,:,i]
+            gy = -grid.yhat + del_gam_vec_y[:,:,i]
+            gz = -grid.zhat + del_gam_vec_z[:,:,i]
 
             # dot product between rhat and the components of the 
             # gravity-correction vector
-            rhat_dot_dgam = grid.xhat*del_gam_vec_x +\
-                    grid.yhat*del_gam_vec_y +\
-                    grid.zhat*del_gam_vec_z
+            rhat_dot_dgam = grid.xhat*del_gam_vec_x[:,:,i] +\
+                    grid.yhat*del_gam_vec_y[:,:,i] +\
+                    grid.zhat*del_gam_vec_z[:,:,i]
             # magnitude of modified local gravity vector
             nrm_g = 1. - rhat_dot_dgam
 
@@ -289,7 +286,7 @@ class evmodel(object):
                     mu)
 
             # projected area of each grid element
-            dareap = (1. + 2.*del_R)*mu*grid.dcos_theta*grid.dphi
+            dareap = (1. + 2.*del_R[:,:,i])*mu*grid.dcos_theta*grid.dphi
 
             stellar_disk[i] = np.sum(prof*strad_at_temp*dareap)
 
@@ -518,13 +515,14 @@ def _del_gam_vec(del_R, rhat, q, a, ahat, cos_psi, nrm_Omega, Omegahat,
             the center of each grid element for the host's surface
     """
 
-    term0 = 2.*del_R*rhat
+    term0 = 2.*del_R*rhat[:,:,None]
 
     intermed_term = np.sqrt(a*a - 2.*a*cos_psi + 1.)
-    term1 = q*(a*ahat - rhat)/(intermed_term*intermed_term*intermed_term)
-    
-    term2 = nrm_Omega*nrm_Omega/(a*a*a)*(rhat-Omegahat*cos_lambda)
-    term3 = -q/(a*a)*ahat
+    term1 = q*(a*ahat -\
+            rhat[:,:,None])/(intermed_term*intermed_term*intermed_term)
+
+    term2 = nrm_Omega*nrm_Omega/(a*a*a)*(rhat-Omegahat*cos_lambda)[:,:,None]
+    term3 = -q/(a*a)*ahat*np.ones_like(cos_lambda)[:,:,None]
 
     return term0 + term1 + term2 + term3
 
@@ -549,7 +547,8 @@ def _calc_del_R(q, r, cos_psi, nrm_Omega, cos_lambda):
     """
     term0 = q*(1./np.sqrt(r*r - 2.*r*cos_psi + 1.))
     term1 = -q*(1./np.sqrt(r*r + 1.) + cos_psi/(r*r))
-    term2 = -nrm_Omega*nrm_Omega/(2.*r*r*r)*(cos_lambda*cos_lambda)
+    term2 = -nrm_Omega*nrm_Omega/(2.*r*r*r)*\
+            (cos_lambda[:,:,None]*cos_lambda[:,:,None])
 
     return term0 + term1 + term2
 
