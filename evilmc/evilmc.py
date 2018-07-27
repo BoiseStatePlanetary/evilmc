@@ -108,10 +108,14 @@ class evmodel(object):
         phase_params = {"per": self.params.per, "T0": self.params.T0}
         phase_supersample = _calc_phi(self.time_supersample, phase_params)
         
-        transit = self._transit() - 1.
+#       transit = self._transit() - 1.
+        # 2018 Jul 26 - Trying to drop PyAstro to see if it speeds things
+        transit = np.ones_like(self.time_supersample)
 
-        eclipse_depth = self.params.F0 + self.params.Aplanet
-        eclipse = self._eclipse(eclipse_depth)
+#       eclipse_depth = self.params.F0 + self.params.Aplanet
+#       eclipse = self._eclipse(eclipse_depth)
+        # 2018 Jul 26 - Trying to drop PyAstro to see if it speeds things
+        eclipse = np.zeros_like(self.time_supersample)
 
         E = self._calc_evilmc_signal(num_grid=num_grid)
 
@@ -229,9 +233,10 @@ class evmodel(object):
         dx = self.params.Ts/1000.
         dstrad_dtemp = derivative(wrapped, self.params.Ts, dx=dx)
 
-        cos_psi =   rc_hat[:,0]*grid.xhat[:,:,None] +\
-                    rc_hat[:,1]*grid.yhat[:,:,None] +\
-                    rc_hat[:,2]*grid.zhat[:,:,None] 
+#       cos_psi =   rc_hat[:,0]*grid.xhat[:,:,None] +\
+#                   rc_hat[:,1]*grid.yhat[:,:,None] +\
+#                   rc_hat[:,2]*grid.zhat[:,:,None] 
+        cos_psi = np.ones((num_grid, num_grid, len(vz)))
 
         # Calculate the deformation for a very slightly tidally deformed 
         # and slowly rotating body with a Love number of 1
@@ -240,24 +245,26 @@ class evmodel(object):
 
         # Calculate the small correction to the surface gravity vector 
         # for a very slightly tidally deformed and slowly rotating body
-        del_gam_vec_x = _del_gam_vec(del_R, grid.xhat, self.params.q, 
-                nrm_rc, rc_hat[:, 0], cos_psi, self.nrm_Omega, 
-                self.Omegahat[0], grid.cos_lambda)
-        del_gam_vec_y = _del_gam_vec(del_R, grid.yhat, self.params.q, 
-                nrm_rc, rc_hat[:, 1], cos_psi, self.nrm_Omega, 
-                self.Omegahat[1], grid.cos_lambda)
+#       del_gam_vec_x = _del_gam_vec(del_R, grid.xhat, self.params.q, 
+#               nrm_rc, rc_hat[:, 0], cos_psi, self.nrm_Omega, 
+#               self.Omegahat[0], grid.cos_lambda)
+#       del_gam_vec_y = _del_gam_vec(del_R, grid.yhat, self.params.q, 
+#               nrm_rc, rc_hat[:, 1], cos_psi, self.nrm_Omega, 
+#               self.Omegahat[1], grid.cos_lambda)
         del_gam_vec_z = _del_gam_vec(del_R, grid.zhat, self.params.q, 
                 nrm_rc, rc_hat[:, 2], cos_psi, self.nrm_Omega, 
                 self.Omegahat[2], grid.cos_lambda)
 
-        # x/y/z components of the local graviational acceleration
-        gz = -grid.zhat[:,:,None] + del_gam_vec_z
+        # z component of the local graviational acceleration
+#       gz = -grid.zhat[:,:,None] + del_gam_vec_z
+        gz = del_gam_vec_z
 
         # dot product between rhat and the components of the 
         # gravity-correction vector
-        rhat_dot_dgam = grid.xhat[:,:,None]*del_gam_vec_x +\
-                grid.yhat[:,:,None]*del_gam_vec_y +\
-                grid.zhat[:,:,None]*del_gam_vec_z
+#       rhat_dot_dgam = grid.xhat[:,:,None]*del_gam_vec_x +\
+#               grid.yhat[:,:,None]*del_gam_vec_y +\
+#               grid.zhat[:,:,None]*del_gam_vec_z
+        rhat_dot_dgam = del_gam_vec_z
 
         # magnitude of modified local gravity vector
         nrm_g = 1. - rhat_dot_dgam
@@ -508,16 +515,17 @@ def _del_gam_vec(del_R, rhat, q, a, ahat, cos_psi, nrm_Omega, Omegahat,
             the center of each grid element for the host's surface
     """
 
-    term0 = 2.*del_R*rhat[:,:,None]
+#   term0 = 2.*del_R*rhat[:,:,None]
 
     intermed_term = np.sqrt(a*a - 2.*a*cos_psi + 1.)
-    term1 = q*(a*ahat -\
-            rhat[:,:,None])/(intermed_term*intermed_term*intermed_term)
+#   term1 = q*(a*ahat -\
+#           rhat[:,:,None])/(intermed_term*intermed_term*intermed_term)
 
-    term2 = nrm_Omega*nrm_Omega/(a*a*a)*(rhat-Omegahat*cos_lambda)[:,:,None]
-    term3 = -q/(a*a)*ahat*np.ones_like(cos_lambda)[:,:,None]
+#   term2 = nrm_Omega*nrm_Omega/(a*a*a)*(rhat-Omegahat*cos_lambda)[:,:,None]
+#   term3 = -q/(a*a)*ahat*np.ones_like(cos_lambda)[:,:,None]
 
-    return term0 + term1 + term2 + term3
+#   return term0 + term1 + term2 + term3
+    return intermed_term
 
 def _calc_del_R(q, r, cos_psi, nrm_Omega, cos_lambda):
     """Returns the deformation for a very slightly tidally 
@@ -540,10 +548,10 @@ def _calc_del_R(q, r, cos_psi, nrm_Omega, cos_lambda):
     """
     term0 = q*(1./np.sqrt(r*r - 2.*r*cos_psi + 1.))
     term1 = -q*(1./np.sqrt(r*r + 1.) + cos_psi/(r*r))
-    term2 = -nrm_Omega*nrm_Omega/(2.*r*r*r)*\
-            (cos_lambda[:,:,None]*cos_lambda[:,:,None])
+#   term2 = -nrm_Omega*nrm_Omega/(2.*r*r*r)*\
+#           (cos_lambda[:,:,None]*cos_lambda[:,:,None])
 
-    return term0 + term1 + term2
+    return term0 + term1# + term2
 
 def _retreive_response_function(which_response_function):
     """Retreives the instrument response function
