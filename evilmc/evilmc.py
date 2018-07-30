@@ -193,7 +193,7 @@ class evmodel(object):
         # Calculate 3D orbital position of companion
         ke = pyasl.KeplerEllipse(self.params.a, self.params.per, 
                 i=self.params.inc, tau=self.params.T0, w=90.)
-        rc = ke.xyzPos(self.time_supersample)
+        rc = _calc_orbital_position(time, params)
 
         # Calculate radial distance between companion and host
         nrm_rc = ke.radius(self.time_supersample)
@@ -638,15 +638,15 @@ def _calc_phi(time, params):
     Args:
         time: observational time (same units at orbital period)
         params: dict of floats/numpy arrays, including
-            params["per"] - orbital period (any units)
-            params["T0"] - mid-transit time (same units as period)
+            params.per - orbital period (any units)
+            params.T0 - mid-transit time (same units as period)
 
     Returns:
         orbital phase
     """
 
-    T0 = params['T0']
-    per = params['per']
+    T0 = params.T0
+    per = params.per
 
     return ((time - T0) % per)/per
 
@@ -660,6 +660,36 @@ def _calc_eclipse_time(params):
     per = params.per
 
     return T0 + 0.5*per
+
+def _calc_orbital_position(time, params):
+    """Calculates x/y/z position of planet, 
+    assuming zero eccentricity (as of 2018 Jul 30)
+
+
+    Args:
+        time: observational time (same units at orbital period)
+        params: dict of floats/numpy arrays, including
+            params.semi - semi-major axis
+            params.inc - orbital inclination
+            params.T0 - mid-transit time
+    """
+
+    # mean motion
+    n = 2.*np.pi/params.per
+
+    # true anomaly
+    f = 2.*np.pi*_calc_phi(time, params)
+
+    # Ch. 2 of Murray & Dermott (1999), p. 51, Eqn 2.122
+    # I'm assuming circular orbits here, 
+    # so pericenter longitude assumed pi/2 and
+    # ascending node longitude assumed 0 degrees
+    xc = params.semi*(np.cos(f + np.pi/2.))
+    yc = params.semi*(np.sin(f + np.pi/2.)*np.cos(params.inc))
+    zc = params.semi*(np.sin(f + np.pi/2.)*np.sin(params.inc))
+
+    return np.array([xc, yc, zc]).transpose()
+    
 
 class _stellar_grid_geometry(object):
     """Generates geometry for the stellar hemisphere facing the observer, 
