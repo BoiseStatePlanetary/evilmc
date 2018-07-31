@@ -3,6 +3,7 @@
 import numpy as np
 from scipy.integrate import simps
 from scipy.misc import derivative
+from scipy.integrate import simps
 
 from astropy import constants as const
 from astropy import units as u
@@ -598,9 +599,12 @@ def _calc_stellar_brightness(Ts, vz, response_function):
     alpha0 = (np.exp(x0)*(3. - x0) - 3.)/(np.exp(x0) - 1.)
 
     F_nu0 = 2.*h*(freq0*freq0*freq0)/(c*c)/(np.exp(x0) - 1.)
-    F_nu = F_nu0*(1. - (3. - alpha0)*vz)
 
-    func = (F_nu.transpose()*resp).transpose()
+#   F_nu = F_nu0*(1. - (3. - alpha0)*vz)
+    term0 = vz*(3. - alpha0)
+    F_nu = F_nu0*(1. - term0)
+
+    func = F_nu*resp[:, np.newaxis]
 
     return np.trapz(func, freq, axis=0)
 
