@@ -105,8 +105,7 @@ class evmodel(object):
         self.time_supersample = np.append(self.time_supersample, TE)
 
         # Calculate orbital phase
-        phase_params = {"per": self.params.per, "T0": self.params.T0}
-        phase_supersample = _calc_phi(self.time_supersample, phase_params)
+        phase_supersample = _calc_phi(self.time_supersample, self.params)
         
         transit = self._transit() - 1.
 
@@ -191,21 +190,17 @@ class evmodel(object):
         grid = _stellar_grid_geometry(self.params, self.Omegahat, num_grid)
 
         # Calculate 3D orbital position of companion
-        ke = pyasl.KeplerEllipse(self.params.a, self.params.per, 
-                i=self.params.inc, tau=self.params.T0, w=90.)
-        rc = _calc_orbital_position(time, params)
+        rc = _calc_orbital_position(self.time_supersample, self.params)
 
         # Calculate radial distance between companion and host
-        nrm_rc = ke.radius(self.time_supersample)
+        nrm_rc = self.params.a
 
         # Unit vector pointing toward planet
-        rc_hat = rc/nrm_rc[:, None]
+        rc_hat = rc/nrm_rc
 
         # z-projection of orbital velocity, in fractions of speed of light
-        vz = ke.xyzVel(self.time_supersample)[:, 2]/c
-
-        # normalize and shift vz so Kz is a free parameter
-        vz = vz/np.nanmax(vz)*self.params.Kz
+        vz = self.params.Kz*_calc_projected_velocity(self.time_supersample, 
+                                                        self.params)
 
         #integrated disk brightness
         stellar_disk = np.zeros_like(vz)
@@ -665,11 +660,10 @@ def _calc_orbital_position(time, params):
     """Calculates x/y/z position of planet, 
     assuming zero eccentricity (as of 2018 Jul 30)
 
-
     Args:
         time: observational time (same units at orbital period)
-        params: dict of floats/numpy arrays, including
-            params.semi - semi-major axis
+        params (:attr:`evparams`): dict of floats/numpy arrays, including
+            params.a - semi-major axis
             params.inc - orbital inclination
             params.T0 - mid-transit time
     """
@@ -684,12 +678,31 @@ def _calc_orbital_position(time, params):
     # I'm assuming circular orbits here, 
     # so pericenter longitude assumed pi/2 and
     # ascending node longitude assumed 0 degrees
-    xc = params.semi*(np.cos(f + np.pi/2.))
-    yc = params.semi*(np.sin(f + np.pi/2.)*np.cos(params.inc))
-    zc = params.semi*(np.sin(f + np.pi/2.)*np.sin(params.inc))
+    xc = params.a*(np.cos(f + np.pi/2.))
+    yc = params.a*(np.sin(f + np.pi/2.)*np.cos(params.inc))
+    zc = params.a*(np.sin(f + np.pi/2.)*np.sin(params.inc))
 
     return np.array([xc, yc, zc]).transpose()
-    
+
+def _calc_projected_velocity(time, params):
+    """Calculates the z-velocity of the host star
+
+    Args:
+        time: observational time (same units at orbital period)
+        params (:attr:`evparams`): dict of floats/numpy arrays, including
+            params.a - semi-major axis
+            params.inc - orbital inclination
+            params.T0 - mid-transit time
+    """
+
+    # mean motion
+    n = 2.*np.pi/params.per
+
+    # true anomaly
+    f = 2.*np.pi*_calc_phi(time, params)
+
+    # Remember that the amplitude of the velocity is a free parameter
+    return np.sin(params.inc)*(np.cos(f + np.pi/2.))
 
 class _stellar_grid_geometry(object):
     """Generates geometry for the stellar hemisphere facing the observer, 
