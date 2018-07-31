@@ -8,7 +8,6 @@ from astropy import constants as const
 from astropy import units as u
 
 from PyAstronomy.modelSuite.XTran.forTrans import MandelAgolLC
-from PyAstronomy import pyasl
 
 import pkg_resources
 
