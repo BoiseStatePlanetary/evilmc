@@ -604,7 +604,7 @@ def _calc_stellar_brightness(Ts, vz, response_function):
     term0 = vz*(3. - alpha0)
     F_nu = F_nu0*(1. - term0)
 
-    func = F_nu*resp[:, np.newaxis]
+    func = F_nu*resp[:,None]
 
     return np.trapz(func, freq, axis=0)
 
