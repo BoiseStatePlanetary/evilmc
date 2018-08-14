@@ -341,7 +341,6 @@ class evmodel(object):
 
             # Rescale eclipse
             eclipse = 1. - eclipse
-            print(eclipse_depth)
             eclipse /= eclipse_depth
             eclipse = 1. - eclipse
 
