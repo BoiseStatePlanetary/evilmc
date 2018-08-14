@@ -110,7 +110,9 @@ class evmodel(object):
         transit = self._transit() - 1.
 
         eclipse_depth = self.params.F0 + self.params.Aplanet
-        eclipse = self._eclipse(eclipse_depth)
+        eclipse = np.zeros_like(self.time_supersample)
+        if(eclipse_depth != 0.):
+            eclipse = self._eclipse(eclipse_depth)
 
         E = self._calc_evilmc_signal(num_grid=num_grid)
 
