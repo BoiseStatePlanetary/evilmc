@@ -17,7 +17,7 @@ c = const.c.to('m/s').value
 h = const.h.to("J*s").value
 k_B = const.k_B.to("J/K").value
 
-__all__= ['evmodel', 'evparams', 'convert_Kz']
+__all__= ['evmodel', 'evparams', 'convert_Kz', 'calc_eclipse']
 
 class evmodel(object):
     """Returns ellipsoidal variation of a slowly-rotating star induced by a 
