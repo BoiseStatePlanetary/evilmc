@@ -17,7 +17,7 @@ c = const.c.to('m/s').value
 h = const.h.to("J*s").value
 k_B = const.k_B.to("J/K").value
 
-__all__= ['evmodel', 'evparams', 'convert_Kz']
+__all__= ['evmodel', 'evparams', 'convert_Kz', 'downsample']
 
 class evmodel(object):
     """Returns ellipsoidal variation of a slowly-rotating star induced by a 
@@ -112,7 +112,7 @@ class evmodel(object):
         eclipse_depth = self.params.F0 + self.params.Aplanet
         eclipse = np.zeros_like(self.time_supersample)
         if(eclipse_depth != 0.):
-            eclipse = self.calc_eclipse(eclipse_depth)
+            eclipse = self._scaled_eclipse(eclipse_depth)
 
         E = self._calc_evilmc_signal(num_grid=num_grid)
 
@@ -130,10 +130,7 @@ class evmodel(object):
         ret = ret[:-1]
         self.time_supersample = self.time_supersample[:-1]
 
-        # Downsample if necessary
-        if(self.supersample_factor > 1):
-            ret = np.mean(ret.reshape(-1, self.supersample_factor), axis=1)
-
+        ret = downsample(ret, self.supersample_factor)
         return ret
 
     def evilmc_signal(self, num_grid=31):
@@ -175,11 +172,7 @@ class evmodel(object):
         ret = ret[:-1]
         self.time_supersample = self.time_supersample[:-1]
 
-        # Downsample if necessary
-        if(self.supersample_factor > 1):
-            ret = np.mean(ret.reshape(-1, self.supersample_factor),\
-                    axis=1)
-
+        ret = downsample(ret, self.supersample_factor)
         return ret
 
     def _calc_evilmc_signal(self, num_grid):
@@ -309,7 +302,7 @@ class evmodel(object):
 
         return ma.evaluate(self.time_supersample)
 
-    def calc_eclipse(self, eclipse_depth):
+    def _eclipse(self, eclipse_depth):
         """
         Uses PyAstronomy's transit light curve routine with uniform
         limb to calculate eclipse
@@ -318,36 +311,78 @@ class evmodel(object):
             eclipse_depth (float): eclipse depth
         """
 
-        # Make eclipse_depth isn't zero!
+        ma = MandelAgolLC(orbit="circular", ld="quad")
+        TE = _calc_eclipse_time(self.params)
+
+        ma = MandelAgolLC(orbit="circular", ld="quad")
+
+        # If quadratic limb-darkening
+        if(self.params.limb_dark == 'quadratic'):
+            ma["linLimb"] = 0.
+            ma["quadLimb"] = 0.
+
+        ma["per"] = self.params.per
+        # Set using the impact parameter
+        ma["i"] = self.params.inc
+        ma["a"] = self.params.a
+        ma["T0"] = TE
+        ma["p"] = np.sqrt(eclipse_depth)
+
+        eclipse = ma.evaluate(self.time_supersample)
+
+        return eclipse
+    
+    def _scaled_eclipse(self, eclipse_depth):
+        """
+        Rescales eclipse
+
+        Args:
+            eclipse_depth (float): eclipse depth
+
+        Returns:
+            eclipse scaled between zero and one
+        """
+
+        eclipse = self._eclipse(eclipse_depth)
+        # Rescale eclipse
         if(eclipse_depth != 0):
-            ma = MandelAgolLC(orbit="circular", ld="quad")
-            TE = _calc_eclipse_time(self.params)
-
-            ma = MandelAgolLC(orbit="circular", ld="quad")
-
-            # If quadratic limb-darkening
-            if(self.params.limb_dark == 'quadratic'):
-                ma["linLimb"] = 0.
-                ma["quadLimb"] = 0.
-
-            ma["per"] = self.params.per
-            # Set using the impact parameter
-            ma["i"] = self.params.inc
-            ma["a"] = self.params.a
-            ma["T0"] = TE
-            ma["p"] = np.sqrt(eclipse_depth)
-
-            eclipse = ma.evaluate(self.time_supersample)
-
-            # Rescale eclipse
             eclipse = 1. - eclipse
             eclipse /= eclipse_depth
             eclipse = 1. - eclipse
-
         elif(eclipse_depth == 0.):
             eclipse = 0.
 
         return eclipse
+
+    def calc_eclipse(self, eclipse_depth):
+        """
+        Calculates unscaled eclipse, with baseline at zero
+
+        Args:
+            eclipse_depth (float): eclipse depth
+
+        Returns:
+            eclipse time series between 0 and -(eclipse_depth)
+        """
+
+        eclipse = self._eclipse(eclipse_depth) - 1.
+        eclipse = downsample(eclipse, self.supersample_factor)
+
+        return eclipse
+
+def downsample(data, supersample_factor):
+    """Downsample data using super-sample factor
+
+    Args:
+        data (numpy array): time series to downsample
+        supersample_factor (int): number of times to downsample
+
+    Returns:
+        downsampled time series
+
+    """
+    return np.mean(data.reshape(-1, supersample_factor), axis=1)
+
 
 def convert_Kz(Mp=None, Ms=None, q=None, a=0.1, inc=90., Kz=None):
     """Calculate and/or convert a radial velocity to fractions of the speed of
