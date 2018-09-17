@@ -112,7 +112,7 @@ class evmodel(object):
         eclipse_depth = self.params.F0 + self.params.Aplanet
         eclipse = np.zeros_like(self.time_supersample)
         if(eclipse_depth != 0.):
-            eclipse = self._eclipse(eclipse_depth)
+            eclipse = self.calc_eclipse(eclipse_depth)
 
         E = self._calc_evilmc_signal(num_grid=num_grid)
 
@@ -309,7 +309,7 @@ class evmodel(object):
 
         return ma.evaluate(self.time_supersample)
 
-    def _eclipse(self, eclipse_depth):
+    def calc_eclipse(self, eclipse_depth):
         """
         Uses PyAstronomy's transit light curve routine with uniform
         limb to calculate eclipse
